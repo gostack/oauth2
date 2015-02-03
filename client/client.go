@@ -1,4 +1,4 @@
-package oauth2c
+package client
 
 import (
 	"bytes"
