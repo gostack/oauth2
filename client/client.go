@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/divoxx/stackerr"
+	"github.com/gostack/oauth2/common"
 )
 
 // Client is the main entrypoint for this package and it exposes the
@@ -22,18 +23,8 @@ type Client struct {
 	httpClient http.Client
 }
 
-// TokenResponse represents the response from the token endpoint, containing the
-// access token and other information, such as the refresh token and token type.
-type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"`
-	RefreshToken string `json:"refresh_token"`
-	Scope        string `json:"scope"`
-}
-
 // ResourceOwnerCredentials implements the password grant type.
-func (c Client) ResourceOwnerCredentials(username, password, scope string) (*TokenResponse, error) {
+func (c Client) ResourceOwnerCredentials(username, password, scope string) (*common.TokenResponse, error) {
 	return c.doTokenRequest(url.Values{
 		"grant_type": []string{"password"},
 		"username":   []string{username},
@@ -43,8 +34,8 @@ func (c Client) ResourceOwnerCredentials(username, password, scope string) (*Tok
 }
 
 // doTokenRequest performs a request against token endpoint and returns a TokenResponse.
-func (c Client) doTokenRequest(params url.Values) (*TokenResponse, error) {
-	var tr TokenResponse
+func (c Client) doTokenRequest(params url.Values) (*common.TokenResponse, error) {
+	var tr common.TokenResponse
 
 	body := []byte(params.Encode())
 

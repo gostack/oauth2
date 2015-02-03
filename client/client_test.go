@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"github.com/gostack/oauth2/common"
 )
 
 func TestResourceOwnerCredentials(t *testing.T) {
@@ -28,7 +30,7 @@ func TestResourceOwnerCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := &TokenResponse{
+	expected := &common.TokenResponse{
 		AccessToken:  "2YotnFZFEjr1zCsicMWpAA",
 		TokenType:    "example",
 		ExpiresIn:    3600,
