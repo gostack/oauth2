@@ -13,18 +13,18 @@ import (
 // Client is the main entrypoint for this package and it exposes the
 // actions the client can perform for authentication purpose.
 type Client struct {
-	// AuthBaseURL is the base location for the OAuth2 endpoints
-	AuthBaseURL string
-
 	// ID and Secret are used for identification and authentication of the client
 	ID, Secret string
+
+	// AuthBaseURL is the base location for the OAuth2 endpoints
+	AuthBaseURL string
 
 	// httpClient is the http client to be used for API calls
 	httpClient http.Client
 }
 
 // ResourceOwnerCredentials implements the password grant type.
-func (c Client) ResourceOwnerCredentials(username, password, scope string) (*common.TokenResponse, error) {
+func (c Client) ResourceOwnerCredentials(username, password, scope string) (*common.Authorization, error) {
 	return c.doTokenRequest(url.Values{
 		"grant_type": []string{"password"},
 		"username":   []string{username},
@@ -33,9 +33,9 @@ func (c Client) ResourceOwnerCredentials(username, password, scope string) (*com
 	})
 }
 
-// doTokenRequest performs a request against token endpoint and returns a TokenResponse.
-func (c Client) doTokenRequest(params url.Values) (*common.TokenResponse, error) {
-	var tr common.TokenResponse
+// doTokenRequest performs a request against token endpoint and returns a Authorization.
+func (c Client) doTokenRequest(params url.Values) (*common.Authorization, error) {
+	var auth common.Authorization
 
 	body := []byte(params.Encode())
 
@@ -44,6 +44,7 @@ func (c Client) doTokenRequest(params url.Values) (*common.TokenResponse, error)
 		return nil, stackerr.Wrap(err)
 	}
 
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; encoding=utf-8")
 	req.SetBasicAuth(c.ID, c.Secret)
 
 	res, err := c.httpClient.Do(req)
@@ -51,9 +52,9 @@ func (c Client) doTokenRequest(params url.Values) (*common.TokenResponse, error)
 		return nil, stackerr.Wrap(err)
 	}
 
-	if err := json.NewDecoder(res.Body).Decode(&tr); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&auth); err != nil {
 		return nil, stackerr.Wrap(err)
 	}
 
-	return &tr, nil
+	return &auth, nil
 }

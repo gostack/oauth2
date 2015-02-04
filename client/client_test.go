@@ -30,7 +30,7 @@ func TestResourceOwnerCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := &common.TokenResponse{
+	expected := &common.Authorization{
 		AccessToken:  "2YotnFZFEjr1zCsicMWpAA",
 		TokenType:    "example",
 		ExpiresIn:    3600,
