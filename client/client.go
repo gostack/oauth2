@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 
@@ -35,8 +36,6 @@ func (c Client) ResourceOwnerCredentials(username, password, scope string) (*com
 
 // doTokenRequest performs a request against token endpoint and returns a Authorization.
 func (c Client) doTokenRequest(params url.Values) (*common.Authorization, error) {
-	var auth common.Authorization
-
 	body := []byte(params.Encode())
 
 	req, err := http.NewRequest("POST", c.AuthBaseURL+"/token", bytes.NewReader(body))
@@ -52,9 +51,19 @@ func (c Client) doTokenRequest(params url.Values) (*common.Authorization, error)
 		return nil, stackerr.Wrap(err)
 	}
 
-	if err := json.NewDecoder(res.Body).Decode(&auth); err != nil {
-		return nil, stackerr.Wrap(err)
-	}
+	dec := json.NewDecoder(res.Body)
 
-	return &auth, nil
+	switch res.StatusCode {
+	case 200, 201, 202:
+		auth := common.Authorization{}
+		return &auth, dec.Decode(&auth)
+	case 400, 401, 403, 422:
+		knownErr := common.Error{}
+		if err := dec.Decode(&knownErr); err != nil {
+			return nil, stackerr.Wrap(err)
+		}
+		return nil, &knownErr
+	default:
+		return nil, errors.New("don't know how to handle response")
+	}
 }

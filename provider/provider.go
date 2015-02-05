@@ -3,113 +3,143 @@ package provider
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/gostack/oauth2/common"
 )
 
-var (
-	Provider = http.NewServeMux()
-)
-
-func init() {
-	Provider.Handle("/token", internalHandler{tokenEndpoint})
+// Provider represents a entire instance of a provider, connected to a specific backend.
+//
+//  // oauthBackend implements the provider.Backend interface
+// 	p := provider.New(oauthBackend)
+//  http.Handle("/oauth", p.HTTPHandler())
+type Provider struct {
+	backend Backend
 }
 
-type Error struct {
-	Code int    `json:"-"`
-	ID   string `json:"error"`
-	Desc string `json:"error_description,omitempty"`
-	URI  string `json:"error_uri,omitempty"`
+// Creates a new Provider instance for the given backend
+func New(b Backend) *Provider {
+	p := Provider{backend: b}
+	return &p
 }
 
-func (e Error) Error() string {
-	return e.Desc
-}
-
-var (
-	ErrInvalidRequest       = Error{ID: "invalid_request", Code: http.StatusBadRequest, Desc: "The request is missing a required parameter, includes an unsupported parameter value (other than grant type), repeats a parameter, includes multiple credentials, utilizes more than one mechanism for authenticating the client, or is otherwise malformed."}
-	ErrInvalidClient        = Error{ID: "invalid_client", Code: http.StatusUnauthorized, Desc: "Client authentication failed (e.g., unknown client, no client authentication included, or unsupported authentication method)."}
-	ErrUnauthorizedClient   = Error{ID: "unauthorized_client", Code: http.StatusUnauthorized, Desc: "The authenticated client is not authorized to use this authorization grant type."}
-	ErrAccessDenied         = Error{ID: "access_denied", Code: http.StatusUnauthorized, Desc: "The resource owner or authorization server denied the request."}
-	ErrServerError          = Error{ID: "server_error", Code: http.StatusInternalServerError, Desc: "The authorization server encountered an unexpected condition that prevented it from fulfilling the request."}
-	ErrUnsupportedGrantType = Error{ID: "unsupported_grant_type", Code: http.StatusBadRequest, Desc: "The authorization grant type is not supported by the authorization server."}
-)
-
-type internalHandler struct {
-	endpoint func(req *http.Request) (interface{}, error)
-}
-
-func (h internalHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	enc := json.NewEncoder(w)
-
-	var data interface{}
-
-	if v, err := h.endpoint(req); err != nil {
-		data = err
-		if err, k := err.(Error); k {
-			w.WriteHeader(err.Code)
-		}
-	} else {
-		data = v
+// HTTPHandler builds and return an http.Handler that can be mounted into any net/http
+// based application.
+//
+// For example, this will define all oauth routes on the /oauth namespace (i.e. /oauth/token):
+//  http.Handler("/oauth", p.HTTPHandler())
+func (p Provider) HTTPHandler() *http.ServeMux {
+	routes := map[string]http.Handler{
+		"/token": TokenHTTPHandler{p.backend},
 	}
 
-	if err := enc.Encode(data); err != nil {
-		return
+	mux := http.NewServeMux()
+	for r, h := range routes {
+		mux.Handle(r, h)
+	}
+
+	return mux
+}
+
+// Encoder is a default interface for encoders
+type Encoder interface {
+	Encode(v interface{}) error
+}
+
+// EncoderResponseWriter that extends http.ResponseWriter to allow easy object serialization
+type EncoderResponseWriter struct {
+	http.ResponseWriter
+	enc Encoder
+}
+
+// NewEncoderResponseWriter creates a new EncoderResponseWriter with the proper encoder for
+// the current request.
+func NewEncoderResponseWriter(w http.ResponseWriter, req *http.Request) *EncoderResponseWriter {
+	return &EncoderResponseWriter{w, json.NewEncoder(w)}
+}
+
+// Encode takes an object, encoding it and calling the Write method appropriately.
+func (w EncoderResponseWriter) Encode(v interface{}) {
+	switch err := v.(type) {
+	case common.Error:
+		w.WriteHeader(err.Code)
+	case error:
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	if err := w.enc.Encode(v); err != nil {
+		panic(err)
 	}
 }
 
-func tokenEndpoint(req *http.Request) (interface{}, error) {
-	var (
-		err error
-		c   *Client
-		u   *User
-	)
+// TokenHTTPHandler handles the requests to the /token endpoint.
+type TokenHTTPHandler struct {
+	backend Backend
+}
 
+// ServeHTTP implements the http.Handler interface for this struct.
+func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	ew := NewEncoderResponseWriter(w, req)
+
+	// Read the Authorization header for client credentials
 	id, secret, ok := req.BasicAuth()
 	if !ok {
-		return nil, ErrInvalidRequest
+		ew.Encode(common.ErrInvalidRequest)
+		return
 	}
 
-	c, err = integration.LookupClient(id)
+	// Get the client asnd authenticate it
+	c, err := h.backend.LookupClient(id)
 	if err != nil {
-		return nil, ErrServerError
+		ew.Encode(common.ErrServerError)
+		return
+	} else if c.Secret != secret {
+		ew.Encode(common.ErrInvalidClient)
+		return
 	}
 
-	if c.Secret != secret {
-		return nil, ErrInvalidClient
-	}
-
+	// Read the grant_type from the body parameters
 	gt := req.PostFormValue("grant_type")
 	if gt == "" {
-		return nil, ErrInvalidRequest
+		ew.Encode(common.ErrInvalidRequest)
+		return
 	}
 
 	switch gt {
 	case "password":
-		if !c.Internal {
-			return nil, ErrUnauthorizedClient
-		}
+		h.resourceOwnerCredentials(c, ew, req)
+	default:
+		ew.Encode(common.ErrUnsupportedGrantType)
+	}
+}
 
-		var (
-			username = req.PostFormValue("username")
-			password = req.PostFormValue("password")
-			scope    = req.PostFormValue("scope")
-		)
-
-		if username == "" || password == "" {
-			return nil, ErrInvalidRequest
-		}
-
-		u, err = integration.AuthenticateUser(username, password)
-		if err != nil {
-			return nil, ErrAccessDenied
-		}
-
-		auth, err := integration.Authorize(c, u, scope)
-		if err != nil {
-			return nil, ErrServerError
-		}
-
-		return auth, nil
+// resourceOwnerCredentials implements that Resource Owner Credentials grant type.
+func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+	if !c.Internal {
+		ew.Encode(common.ErrUnauthorizedClient)
 	}
 
-	return nil, ErrUnsupportedGrantType
+	var (
+		username = req.PostFormValue("username")
+		password = req.PostFormValue("password")
+		scope    = req.PostFormValue("scope")
+	)
+
+	if username == "" || password == "" {
+		ew.Encode(common.ErrInvalidRequest)
+		return
+	}
+
+	u, err := h.backend.AuthenticateUser(username, password)
+	if err != nil {
+		ew.Encode(common.ErrAccessDenied)
+		return
+	}
+
+	auth, err := h.backend.Authorize(c, u, scope)
+	if err != nil {
+		ew.Encode(common.ErrServerError)
+		return
+	}
+
+	ew.Encode(auth)
 }
