@@ -15,7 +15,7 @@ type Provider struct {
 }
 
 // Creates a new Provider instance for the given backend
-func New(b Backend) *Provider {
+func NewProvider(b Backend) *Provider {
 	p := Provider{backend: b}
 	return &p
 }

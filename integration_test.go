@@ -1,35 +1,35 @@
-package oauth2
+package oauth2_test
 
 import (
-	"errors"
+	"github.com/gostack/oauth2"
 	"net/http/httptest"
 	"testing"
 )
 
-type testBackend struct{}
+type oauth2Backend struct{}
 
-func (i testBackend) AuthenticateUser(username, password string) (*User, error) {
-	if username == "username" && password == "password" {
-		return &User{ID: 1}, nil
-	} else {
-		return nil, errors.New("invalid user")
+func (b *oauth2Backend) AuthenticateUser(username, password string) (*oauth2.User, error) {
+	if username == "validuser" && password == "validpassword" {
+		return &oauth2.User{ID: 1}, nil
 	}
+
+	return nil, oauth2.ErrAccessDenied
 }
 
-func (i testBackend) LookupClient(id string) (*Client, error) {
+func (b *oauth2Backend) LookupClient(id string) (*oauth2.Client, error) {
 	if id == "e6e41132d34a952627375a94f08823fb219a828d" {
-		return &Client{
+		return &oauth2.Client{
 			ID:       "e6e41132d34a952627375a94f08823fb219a828d",
 			Secret:   "3fa181c93f330cd832c290ba310486a73c32dbe22178c7b3faa96a5236a1d7ab649058c33e060de3f3ebee63e7e976c77693e433addbc0e81bf17b679b350d9f",
 			Internal: true,
 		}, nil
 	}
 
-	return nil, errors.New("invalid client")
+	return nil, oauth2.ErrInvalidClient
 }
 
-func (i testBackend) Authorize(c *Client, u *User, scope string) (*Authorization, error) {
-	return &Authorization{
+func (b *oauth2Backend) Authorize(c *oauth2.Client, u *oauth2.User, scope string) (*oauth2.Authorization, error) {
+	return &oauth2.Authorization{
 		AccessToken:  "fe23f7f48d1856785f4eeda57e52fffada592df7dc24e580401e2d6007cf23d557b5fb36588539a2f477f657e127c94644796e1ad9afb785fa69df0a1b6e473d",
 		TokenType:    "bearer",
 		ExpiresIn:    3600,
@@ -39,22 +39,22 @@ func (i testBackend) Authorize(c *Client, u *User, scope string) (*Authorization
 }
 
 func TestPasswordGrantType(t *testing.T) {
-	p := New(testBackend{})
+	p := oauth2.NewProvider(&oauth2Backend{})
 	srv := httptest.NewServer(p.HTTPHandler())
 	defer srv.Close()
 
-	c := ClientAgent{
+	c := oauth2.ClientAgent{
 		AuthBaseURL: srv.URL,
 		ID:          "e6e41132d34a952627375a94f08823fb219a828d",
 		Secret:      "3fa181c93f330cd832c290ba310486a73c32dbe22178c7b3faa96a5236a1d7ab649058c33e060de3f3ebee63e7e976c77693e433addbc0e81bf17b679b350d9f",
 	}
 
-	tr, err := c.ResourceOwnerCredentials("username", "password", "scope")
+	tr, err := c.ResourceOwnerCredentials("validuser", "validpassword", "scope")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected := Authorization{
+	expected := oauth2.Authorization{
 		AccessToken:  "fe23f7f48d1856785f4eeda57e52fffada592df7dc24e580401e2d6007cf23d557b5fb36588539a2f477f657e127c94644796e1ad9afb785fa69df0a1b6e473d",
 		TokenType:    "bearer",
 		ExpiresIn:    3600,
