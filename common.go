@@ -1,4 +1,4 @@
-package common
+package oauth2
 
 type Authorization struct {
 	AccessToken  string `json:"access_token"`

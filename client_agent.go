@@ -1,4 +1,4 @@
-package client
+package oauth2
 
 import (
 	"bytes"
@@ -8,12 +8,11 @@ import (
 	"net/url"
 
 	"github.com/divoxx/stackerr"
-	"github.com/gostack/oauth2/common"
 )
 
 // Client is the main entrypoint for this package and it exposes the
 // actions the client can perform for authentication purpose.
-type Client struct {
+type ClientAgent struct {
 	// ID and Secret are used for identification and authentication of the client
 	ID, Secret string
 
@@ -25,7 +24,7 @@ type Client struct {
 }
 
 // ResourceOwnerCredentials implements the password grant type.
-func (c Client) ResourceOwnerCredentials(username, password, scope string) (*common.Authorization, error) {
+func (c ClientAgent) ResourceOwnerCredentials(username, password, scope string) (*Authorization, error) {
 	return c.doTokenRequest(url.Values{
 		"grant_type": []string{"password"},
 		"username":   []string{username},
@@ -35,7 +34,7 @@ func (c Client) ResourceOwnerCredentials(username, password, scope string) (*com
 }
 
 // doTokenRequest performs a request against token endpoint and returns a Authorization.
-func (c Client) doTokenRequest(params url.Values) (*common.Authorization, error) {
+func (c ClientAgent) doTokenRequest(params url.Values) (*Authorization, error) {
 	body := []byte(params.Encode())
 
 	req, err := http.NewRequest("POST", c.AuthBaseURL+"/token", bytes.NewReader(body))
@@ -55,10 +54,10 @@ func (c Client) doTokenRequest(params url.Values) (*common.Authorization, error)
 
 	switch res.StatusCode {
 	case 200, 201, 202:
-		auth := common.Authorization{}
+		auth := Authorization{}
 		return &auth, dec.Decode(&auth)
 	case 400, 401, 403, 422:
-		knownErr := common.Error{}
+		knownErr := Error{}
 		if err := dec.Decode(&knownErr); err != nil {
 			return nil, stackerr.Wrap(err)
 		}

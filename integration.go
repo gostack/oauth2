@@ -1,6 +1,4 @@
-package provider
-
-import "github.com/gostack/oauth2/common"
+package oauth2
 
 type Backend interface {
 	AuthenticateUser(username, password string) (*User, error)
@@ -16,5 +14,3 @@ type Client struct {
 	ID, Secret string
 	Internal   bool
 }
-
-type Authorization common.Authorization

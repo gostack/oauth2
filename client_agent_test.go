@@ -1,12 +1,10 @@
-package client
+package oauth2
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
-
-	"github.com/gostack/oauth2/common"
 )
 
 func TestResourceOwnerCredentials(t *testing.T) {
@@ -19,7 +17,7 @@ func TestResourceOwnerCredentials(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	client := Client{
+	client := ClientAgent{
 		AuthBaseURL: srv.URL,
 		ID:          "e6e41132d34a952627375a94f08823fb219a828d",
 		Secret:      "3fa181c93f330cd832c290ba310486a73c32dbe22178c7b3faa96a5236a1d7ab649058c33e060de3f3ebee63e7e976c77693e433addbc0e81bf17b679b350d9f",
@@ -30,7 +28,7 @@ func TestResourceOwnerCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := &common.Authorization{
+	expected := &Authorization{
 		AccessToken:  "2YotnFZFEjr1zCsicMWpAA",
 		TokenType:    "example",
 		ExpiresIn:    3600,

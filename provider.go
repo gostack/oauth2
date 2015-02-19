@@ -1,10 +1,8 @@
-package provider
+package oauth2
 
 import (
 	"encoding/json"
 	"net/http"
-
-	"github.com/gostack/oauth2/common"
 )
 
 // Provider represents a entire instance of a provider, connected to a specific backend.
@@ -60,7 +58,7 @@ func NewEncoderResponseWriter(w http.ResponseWriter, req *http.Request) *Encoder
 // Encode takes an object, encoding it and calling the Write method appropriately.
 func (w EncoderResponseWriter) Encode(v interface{}) {
 	switch err := v.(type) {
-	case common.Error:
+	case Error:
 		w.WriteHeader(err.Code)
 	case error:
 		w.WriteHeader(http.StatusInternalServerError)
@@ -83,24 +81,24 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Read the Authorization header for client credentials
 	id, secret, ok := req.BasicAuth()
 	if !ok {
-		ew.Encode(common.ErrInvalidRequest)
+		ew.Encode(ErrInvalidRequest)
 		return
 	}
 
 	// Get the client asnd authenticate it
 	c, err := h.backend.LookupClient(id)
 	if err != nil {
-		ew.Encode(common.ErrServerError)
+		ew.Encode(ErrServerError)
 		return
 	} else if c.Secret != secret {
-		ew.Encode(common.ErrInvalidClient)
+		ew.Encode(ErrInvalidClient)
 		return
 	}
 
 	// Read the grant_type from the body parameters
 	gt := req.PostFormValue("grant_type")
 	if gt == "" {
-		ew.Encode(common.ErrInvalidRequest)
+		ew.Encode(ErrInvalidRequest)
 		return
 	}
 
@@ -108,14 +106,14 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case "password":
 		h.resourceOwnerCredentials(c, ew, req)
 	default:
-		ew.Encode(common.ErrUnsupportedGrantType)
+		ew.Encode(ErrUnsupportedGrantType)
 	}
 }
 
 // resourceOwnerCredentials implements that Resource Owner Credentials grant type.
 func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Internal {
-		ew.Encode(common.ErrUnauthorizedClient)
+		ew.Encode(ErrUnauthorizedClient)
 	}
 
 	var (
@@ -125,19 +123,19 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 	)
 
 	if username == "" || password == "" {
-		ew.Encode(common.ErrInvalidRequest)
+		ew.Encode(ErrInvalidRequest)
 		return
 	}
 
 	u, err := h.backend.AuthenticateUser(username, password)
 	if err != nil {
-		ew.Encode(common.ErrAccessDenied)
+		ew.Encode(ErrAccessDenied)
 		return
 	}
 
 	auth, err := h.backend.Authorize(c, u, scope)
 	if err != nil {
-		ew.Encode(common.ErrServerError)
+		ew.Encode(ErrServerError)
 		return
 	}
 

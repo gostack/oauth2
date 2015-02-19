@@ -1,12 +1,9 @@
-package provider
+package oauth2
 
 import (
 	"errors"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/gostack/oauth2/client"
-	"github.com/gostack/oauth2/common"
 )
 
 type testBackend struct{}
@@ -46,7 +43,7 @@ func TestPasswordGrantType(t *testing.T) {
 	srv := httptest.NewServer(p.HTTPHandler())
 	defer srv.Close()
 
-	c := client.Client{
+	c := ClientAgent{
 		AuthBaseURL: srv.URL,
 		ID:          "e6e41132d34a952627375a94f08823fb219a828d",
 		Secret:      "3fa181c93f330cd832c290ba310486a73c32dbe22178c7b3faa96a5236a1d7ab649058c33e060de3f3ebee63e7e976c77693e433addbc0e81bf17b679b350d9f",
@@ -57,7 +54,7 @@ func TestPasswordGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := common.Authorization{
+	expected := Authorization{
 		AccessToken:  "fe23f7f48d1856785f4eeda57e52fffada592df7dc24e580401e2d6007cf23d557b5fb36588539a2f477f657e127c94644796e1ad9afb785fa69df0a1b6e473d",
 		TokenType:    "bearer",
 		ExpiresIn:    3600,
