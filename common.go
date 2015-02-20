@@ -2,6 +2,7 @@ package oauth2
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 )
 
@@ -13,6 +14,24 @@ type Client struct {
 	ID, Secret   string
 	Internal     bool
 	Confidential bool
+}
+
+func NewClient() (*Client, error) {
+	c := Client{}
+
+	if b, err := secureRandomBytes(32); err != nil {
+		return nil, err
+	} else {
+		c.ID = hex.EncodeToString(b)
+	}
+
+	if b, err := secureRandomBytes(64); err != nil {
+		return nil, err
+	} else {
+		c.Secret = hex.EncodeToString(b)
+	}
+
+	return &c, nil
 }
 
 type Authorization struct {
@@ -27,8 +46,6 @@ type Authorization struct {
 }
 
 func NewAuthorization(c *Client, u *User, scope string) (*Authorization, error) {
-	var err error
-
 	a := Authorization{
 		Client:    c,
 		User:      u,
@@ -36,26 +53,25 @@ func NewAuthorization(c *Client, u *User, scope string) (*Authorization, error) 
 		Scope:     scope,
 	}
 
-	a.AccessToken, err = secureRandomHex(64)
-	if err != nil {
+	if b, err := secureRandomBytes(64); err != nil {
 		return nil, err
+	} else {
+		a.AccessToken = base64.URLEncoding.EncodeToString(b)
 	}
 
 	if c.Confidential {
-		a.RefreshToken, err = secureRandomHex(128)
-		if err != nil {
+		if b, err := secureRandomBytes(128); err != nil {
 			return nil, err
+		} else {
+			a.RefreshToken = base64.URLEncoding.EncodeToString(b)
 		}
 	}
 
 	return &a, nil
 }
 
-func secureRandomHex(bytes uint) (string, error) {
+func secureRandomBytes(bytes uint) ([]byte, error) {
 	r := make([]byte, bytes)
-	if _, err := rand.Read(r); err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(r), nil
+	_, err := rand.Read(r)
+	return r, err
 }
