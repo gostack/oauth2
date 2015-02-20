@@ -1,7 +1,29 @@
 package oauth2
 
+import (
+	"io"
+	"net/http"
+)
+
 type Backend interface {
-	AuthenticateUser(username, password string) (*User, error)
-	LookupClient(id string) (*Client, error)
-	Authorize(c *Client, u *User, scope string) (*Authorization, error)
+	// AuthorizationPersist persists the provided Authorization in the backend
+	AuthorizationPersist(a *Authorization) error
+
+	// ClientLookup returns the Client that is identified by the provided id.
+	ClientLookup(clientID string) (*Client, error)
+
+	// ClientPerist persists the provided client in the backend
+	ClientPersist(c *Client) error
+
+	// RenderAuthorizationPage should write to the io.Writer the HTML for the
+	// authorization page.
+	RenderAuthorizationPage(w io.Writer) error
+
+	// UserAuthenticate should authenticate a user using the provided username
+	// and password and return a User object or an error.
+	UserAuthenticate(username, password string) (*User, error)
+
+	// UserLoggedIn should take an http request and extract the current logged
+	// user from it.
+	UserLoggedIn(req *http.Request) (*User, error)
 }
