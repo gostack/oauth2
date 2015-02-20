@@ -3,6 +3,7 @@ package oauth2
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 )
 
 // Provider represents a entire instance of a provider, connected to a specific backend.
@@ -67,6 +68,44 @@ func (w EncoderResponseWriter) Encode(v interface{}) {
 	if err := w.enc.Encode(v); err != nil {
 		panic(err)
 	}
+}
+
+// AuthorizeHTTPHandler
+type AuthorizeHTTPHandler struct {
+	backend Backend
+}
+
+// ServeHTTP implements the http.Handler interface for this struct.
+func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	redirectURI, err := url.ParseRequestURI(req.URL.Query().Get("redirect_uri"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("redirect_uri is missing"))
+		return
+	}
+
+	id := req.URL.Query().Get("client_id")
+	if id == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("client_id is missing"))
+		return
+	}
+
+	// Get the client asnd authenticate it
+	c, err := h.backend.ClientLookup(id)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid client_id"))
+		return
+	}
+
+	// If provided redirectURI does not match the stored RedirectURI
+	if redirectURI.String() != c.RedirectURI {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid redirect_uri"))
+		return
+	}
+
 }
 
 // TokenHTTPHandler handles the requests to the /token endpoint.

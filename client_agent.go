@@ -23,6 +23,24 @@ type ClientAgent struct {
 	httpClient http.Client
 }
 
+// AuthorizationURL implements the password grant type.
+func (c ClientAgent) AuthorizationURL(state, scope, redirectURI string) (string, error) {
+	u, err := url.ParseRequestURI(c.AuthBaseURL + "/authorize")
+	if err != nil {
+		return "", err
+	}
+
+	u.RawQuery = url.Values{
+		"client_id":     []string{c.ID},
+		"response_type": []string{"code"},
+		"state":         []string{state},
+		"scope":         []string{scope},
+		"redirect_uri":  []string{redirectURI},
+	}.Encode()
+
+	return u.String(), nil
+}
+
 // ResourceOwnerCredentials implements the password grant type.
 func (c ClientAgent) ResourceOwnerCredentials(username, password, scope string) (*Authorization, error) {
 	return c.doTokenRequest(url.Values{

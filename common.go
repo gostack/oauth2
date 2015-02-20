@@ -12,6 +12,7 @@ type User struct {
 
 type Client struct {
 	ID, Secret   string
+	RedirectURI  string
 	Internal     bool
 	Confidential bool
 }

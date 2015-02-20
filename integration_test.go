@@ -1,6 +1,9 @@
 package oauth2_test
 
 import (
+	"io/ioutil"
+	"log"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -28,6 +31,28 @@ func init() {
 	bkd.UserPersist(&oauth2.User{
 		Login: "username",
 	})
+}
+
+func TestAuthorizationCodeGrantType(t *testing.T) {
+	srv := httptest.NewServer(prv.HTTPHandler())
+	defer srv.Close()
+
+	clt := oauth2.ClientAgent{
+		AuthBaseURL: srv.URL,
+		ID:          clt.ID,
+		Secret:      clt.Secret,
+	}
+
+	url, _ := clt.AuthorizationURL("state", "scope", "http://example.com/callback")
+	log.Println(url)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b, _ := ioutil.ReadAll(resp.Body)
+	log.Println(string(b))
 }
 
 func TestPasswordGrantType(t *testing.T) {

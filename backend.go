@@ -21,7 +21,7 @@ type Backend interface {
 
 	// RenderAuthorizationPage should write to the io.Writer the HTML for the
 	// authorization page.
-	RenderAuthorizationPage(w io.Writer) error
+	RenderAuthorizationPage(c *Client, u *User, scope string, redirectURI string, w io.Writer) error
 
 	// UserAuthenticate should authenticate a user using the provided username
 	// and password and return a User object or an error.
