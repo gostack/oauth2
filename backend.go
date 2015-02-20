@@ -9,6 +9,10 @@ type Backend interface {
 	// AuthorizationPersist persists the provided Authorization in the backend
 	AuthorizationPersist(a *Authorization) error
 
+	// AuthorizationAuthenticate takes an access token and returns the authorization
+	// it represents, if exists.
+	AuthorizationAuthenticate(accessToken string) (*Authorization, error)
+
 	// ClientLookup returns the Client that is identified by the provided id.
 	ClientLookup(clientID string) (*Client, error)
 

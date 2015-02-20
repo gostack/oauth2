@@ -133,15 +133,12 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 		return
 	}
 
-	auth := &Authorization{
-		Client:       c,
-		User:         u,
-		AccessToken:  "fe23f7f48d1856785f4eeda57e52fffada592df7dc24e580401e2d6007cf23d557b5fb36588539a2f477f657e127c94644796e1ad9afb785fa69df0a1b6e473d",
-		RefreshToken: "0ca5e99b50b8cd9393265a3ce64338635cf1182984236d9832e77a1431efb814b7c79d93710ce1f95992f608ecbd2ba20104644664ef41ab6293ed0a5417666c",
-		TokenType:    "bearer",
-		ExpiresIn:    3600,
-		Scope:        scope,
+	auth, err := NewAuthorization(c, u, scope)
+	if err != nil {
+		ew.Encode(ErrServerError)
+		return
 	}
+
 	if err := h.backend.AuthorizationPersist(auth); err != nil {
 		ew.Encode(ErrServerError)
 		return

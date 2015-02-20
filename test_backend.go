@@ -36,22 +36,34 @@ type TestBackend struct {
 	// indexed by their login
 	users map[string]*User
 
-	// authorizations holds the existing authorizations
-	authorizations []*Authorization
+	// authorizations holds the existing authorizations indexed by
+	// access token
+	authorizations map[string]*Authorization
 }
 
 func NewTestBackend() *TestBackend {
 	return &TestBackend{
 		clients:        make(map[string]*Client),
 		users:          make(map[string]*User),
-		authorizations: make([]*Authorization, 0),
+		authorizations: make(map[string]*Authorization),
 	}
 }
 
 // AuthorizationPersist stores the authorization in the backend
 func (b *TestBackend) AuthorizationPersist(a *Authorization) error {
-	b.authorizations = append(b.authorizations, a)
+	b.authorizations[a.AccessToken] = a
 	return nil
+}
+
+// AuthorizationAuthenticate takes an access token and returns the authorization
+// it represents, if exists.
+func (b *TestBackend) AuthorizationAuthenticate(accessToken string) (*Authorization, error) {
+	a, exst := b.authorizations[accessToken]
+	if !exst {
+		return nil, ErrAccessDenied
+	}
+
+	return a, nil
 }
 
 // ClientPersist persists the client
