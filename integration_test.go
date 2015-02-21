@@ -20,17 +20,19 @@ var (
 func init() {
 	var err error
 
-	clt, err = oauth2.NewClient()
+	clt, err = oauth2.NewClient("Test Client", "http://example.com/callback", true, true)
 	if err != nil {
 		panic(err)
 	}
 
-	clt.Internal = true
 	bkd.ClientPersist(clt)
 
 	bkd.UserPersist(&oauth2.User{
 		Login: "username",
 	})
+
+	bkd.ScopePersist(&oauth2.Scope{"basic_profile", "Basic profile information"})
+	bkd.ScopePersist(&oauth2.Scope{"email", "Your email"})
 }
 
 func TestAuthorizationCodeGrantType(t *testing.T) {
@@ -43,7 +45,7 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 		Secret:      clt.Secret,
 	}
 
-	url, _ := clt.AuthorizationURL("state", "scope", "http://example.com/callback")
+	url, _ := clt.AuthorizationURL("state", "basic_profile email", "http://example.com/callback")
 	log.Println(url)
 
 	resp, err := http.Get(url)
@@ -65,7 +67,7 @@ func TestPasswordGrantType(t *testing.T) {
 		Secret:      clt.Secret,
 	}
 
-	a, err := clt.ResourceOwnerCredentials("username", "validpassword", "scope")
+	a, err := clt.ResourceOwnerCredentials("username", "validpassword", "basic_profile email")
 	if err != nil {
 		t.Fatal(err)
 	}

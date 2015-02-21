@@ -28,6 +28,12 @@ var (
 		Desc: "Client authentication failed (e.g., unknown client, no client authentication included, or unsupported authentication method).",
 	}
 
+	ErrInvalidScope = Error{
+		ID:   "invalid_scope",
+		Code: http.StatusBadRequest,
+		Desc: "The requested scope is invalid, unknown, or malformed.",
+	}
+
 	ErrUnauthorizedClient = Error{
 		ID:   "unauthorized_client",
 		Code: http.StatusUnauthorized,

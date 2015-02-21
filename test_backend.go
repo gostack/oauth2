@@ -15,6 +15,8 @@ var (
 	</head>
 
 	<body>
+		{{ .Client.Name }}
+
 		<form method="POST">
 			<button type="submit" name="action" value="authorize">Authorize</button>
 			<button type="submit" name="action" value="deny">Deny</button>
@@ -39,6 +41,9 @@ type TestBackend struct {
 	// authorizations holds the existing authorizations indexed by
 	// access token
 	authorizations map[string]*Authorization
+
+	// scopes holds the existing scopes indexed by id
+	scopes map[string]*Scope
 }
 
 func NewTestBackend() *TestBackend {
@@ -46,6 +51,7 @@ func NewTestBackend() *TestBackend {
 		clients:        make(map[string]*Client),
 		users:          make(map[string]*User),
 		authorizations: make(map[string]*Authorization),
+		scopes:         make(map[string]*Scope),
 	}
 }
 
@@ -83,8 +89,30 @@ func (b *TestBackend) ClientLookup(clientID string) (*Client, error) {
 }
 
 // RenderAuthorizationPage writes the HTML for the user authorization page
-func (b *TestBackend) RenderAuthorizationPage(w io.Writer) error {
-	return tplAuthorization.Execute(w, nil)
+func (b *TestBackend) RenderAuthorizationPage(w io.Writer, data *AuthorizationPageData) error {
+	return tplAuthorization.Execute(w, data)
+}
+
+// ScopesLookup takes scope IDs and fetches the Scope from backend
+func (b *TestBackend) ScopesLookup(scopeIDs ...string) ([]*Scope, error) {
+	s := make([]*Scope, 0)
+	for _, id := range scopeIDs {
+		scope, exst := b.scopes[id]
+		if !exst {
+			return nil, ErrInvalidScope
+		}
+
+		s = append(s, scope)
+	}
+
+	return s, nil
+}
+
+// ScopePersist persists the scope in the backend, it's not part of the Backend interface
+// but we need a way to add scopes to the Backend.
+func (b *TestBackend) ScopePersist(s *Scope) error {
+	b.scopes[s.ID] = s
+	return nil
 }
 
 // UserAuthenticate lookup the user that matches the username and password

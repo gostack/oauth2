@@ -12,13 +12,19 @@ type User struct {
 
 type Client struct {
 	ID, Secret   string
+	Name         string
 	RedirectURI  string
 	Internal     bool
 	Confidential bool
 }
 
-func NewClient() (*Client, error) {
-	c := Client{}
+func NewClient(name, redirectURI string, confidential, internal bool) (*Client, error) {
+	c := Client{
+		Name:         name,
+		RedirectURI:  redirectURI,
+		Confidential: confidential,
+		Internal:     internal,
+	}
 
 	if b, err := secureRandomBytes(32); err != nil {
 		return nil, err
@@ -75,4 +81,9 @@ func secureRandomBytes(bytes uint) ([]byte, error) {
 	r := make([]byte, bytes)
 	_, err := rand.Read(r)
 	return r, err
+}
+
+type Scope struct {
+	ID   string
+	Desc string
 }

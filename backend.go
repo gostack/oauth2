@@ -5,6 +5,12 @@ import (
 	"net/http"
 )
 
+type AuthorizationPageData struct {
+	Client *Client
+	User   *User
+	Scopes []*Scope
+}
+
 type Backend interface {
 	// AuthorizationPersist persists the provided Authorization in the backend
 	AuthorizationPersist(a *Authorization) error
@@ -21,7 +27,10 @@ type Backend interface {
 
 	// RenderAuthorizationPage should write to the io.Writer the HTML for the
 	// authorization page.
-	RenderAuthorizationPage(c *Client, u *User, scope string, redirectURI string, w io.Writer) error
+	RenderAuthorizationPage(w io.Writer, data *AuthorizationPageData) error
+
+	// ScopesLookup takes scope IDs and fetches the Scope from backend
+	ScopesLookup(scopeIDs ...string) ([]*Scope, error)
 
 	// UserAuthenticate should authenticate a user using the provided username
 	// and password and return a User object or an error.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Provider represents a entire instance of a provider, connected to a specific backend.
@@ -28,7 +29,8 @@ func NewProvider(b Backend) *Provider {
 //  http.Handler("/oauth", p.HTTPHandler())
 func (p Provider) HTTPHandler() *http.ServeMux {
 	routes := map[string]http.Handler{
-		"/token": TokenHTTPHandler{p.backend},
+		"/authorize": AuthorizeHTTPHandler{p.backend},
+		"/token":     TokenHTTPHandler{p.backend},
 	}
 
 	mux := http.NewServeMux()
@@ -106,6 +108,38 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	u, err := h.backend.UserLoggedIn(req)
+	if err != nil {
+		redirectURI.Query().Set("error", "server_error")
+		http.Redirect(w, req, redirectURI.String(), http.StatusFound)
+		return
+	}
+
+	if u == nil {
+		// http.Redirect(w, req, "http://example.com/authenticate", http.StatusFound)
+		// return
+	}
+
+	scope := req.URL.Query().Get("scope")
+	scopes, err := h.backend.ScopesLookup(strings.Split(scope, " ")...)
+	if err != nil {
+		redirectURI.Query().Set("error", "invalid_scope")
+		http.Redirect(w, req, redirectURI.String(), http.StatusFound)
+		return
+	}
+
+	switch req.URL.Query().Get("response_type") {
+	case "code":
+		h.backend.RenderAuthorizationPage(w, &AuthorizationPageData{
+			Client: c,
+			User:   u,
+			Scopes: scopes,
+		})
+
+	default:
+		redirectURI.Query().Set("error", "unsupported_response_type")
+		http.Redirect(w, req, redirectURI.String(), http.StatusFound)
+	}
 }
 
 // TokenHTTPHandler handles the requests to the /token endpoint.
