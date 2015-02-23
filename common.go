@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"time"
 )
 
 type User struct {
@@ -45,6 +46,9 @@ type Authorization struct {
 	Client *Client `json:"-"`
 	User   *User   `json:"-"`
 
+	Code      string    `json:"-"`
+	CreatedAt time.Time `json:"-"`
+
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
@@ -52,12 +56,21 @@ type Authorization struct {
 	Scope        string `json:"scope"`
 }
 
-func NewAuthorization(c *Client, u *User, scope string) (*Authorization, error) {
+func NewAuthorization(c *Client, u *User, scope string, code bool) (*Authorization, error) {
 	a := Authorization{
 		Client:    c,
 		User:      u,
+		CreatedAt: time.Now().UTC(),
 		ExpiresIn: 3600,
 		Scope:     scope,
+	}
+
+	if code {
+		if b, err := secureRandomBytes(16); err != nil {
+			return nil, err
+		} else {
+			a.Code = base64.URLEncoding.EncodeToString(b)
+		}
 	}
 
 	if b, err := secureRandomBytes(64); err != nil {

@@ -72,6 +72,22 @@ func (w EncoderResponseWriter) Encode(v interface{}) {
 	}
 }
 
+func redirectTo(w http.ResponseWriter, req *http.Request, baseURL *url.URL, newValues url.Values) {
+	values := baseURL.Query()
+	for k, v := range newValues {
+		values[k] = v
+	}
+
+	// Clone it
+	u, err := url.ParseRequestURI(baseURL.String())
+	if err != nil {
+		panic(err)
+	}
+
+	u.RawQuery = values.Encode()
+	http.Redirect(w, req, u.String(), http.StatusFound)
+}
+
 // AuthorizeHTTPHandler
 type AuthorizeHTTPHandler struct {
 	backend Backend
@@ -110,8 +126,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	u, err := h.backend.UserAuthenticateRequest(w, req)
 	if err != nil {
-		redirectURI.Query().Set("error", "server_error")
-		http.Redirect(w, req, redirectURI.String(), http.StatusFound)
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
 		return
 	}
 
@@ -122,18 +137,36 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	scope := req.URL.Query().Get("scope")
 	scopes, err := h.backend.ScopesLookup(strings.Split(scope, " ")...)
 	if err != nil {
-		redirectURI.Query().Set("error", "invalid_scope")
-		http.Redirect(w, req, redirectURI.String(), http.StatusFound)
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"invalid_scope"}})
 		return
 	}
 
 	switch req.URL.Query().Get("response_type") {
 	case "code":
-		h.backend.RenderAuthorizationPage(w, &AuthorizationPageData{
-			Client: c,
-			User:   u,
-			Scopes: scopes,
-		})
+		switch req.Method {
+		case "GET":
+			h.backend.RenderAuthorizationPage(w, &AuthorizationPageData{
+				Client: c,
+				User:   u,
+				Scopes: scopes,
+			})
+
+		case "POST":
+			if req.PostFormValue("action") == "authorize" {
+				auth, err := NewAuthorization(c, u, scope, true)
+				if err != nil {
+					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
+					return
+				}
+
+				if err := h.backend.AuthorizationPersist(auth); err != nil {
+					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
+					return
+				}
+
+				redirectTo(w, req, redirectURI, url.Values{"code": []string{auth.Code}, "state": []string{req.URL.Query().Get("state")}})
+			}
+		}
 
 	default:
 		redirectURI.Query().Set("error", "unsupported_response_type")
@@ -205,7 +238,7 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 		return
 	}
 
-	auth, err := NewAuthorization(c, u, scope)
+	auth, err := NewAuthorization(c, u, scope, false)
 	if err != nil {
 		ew.Encode(ErrServerError)
 		return

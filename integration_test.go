@@ -1,10 +1,9 @@
 package oauth2_test
 
 import (
-	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/gostack/oauth2"
@@ -45,18 +44,29 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 		Secret:      clt.Secret,
 	}
 
-	url, _ := clt.AuthorizationURL("state", "basic_profile email", "http://example.com/callback")
-	log.Println(url)
+	authURL, _ := clt.AuthorizationURL("state", "basic_profile email", "http://example.com/callback")
 
 	bkd.RequestLogin = "username"
 
-	resp, err := http.Get(url)
+	resp, err := http.Get(authURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Error("Expected authorize HTML page to be rendered properly")
+	}
+
+	// When the user click authorize, it basically just re-submit the same page with
+	// POST data specifying which button was clicked. Here we simulate this.
+	resp, err = http.PostForm(authURL, url.Values{"action": []string{"authorize"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b, _ := ioutil.ReadAll(resp.Body)
-	log.Println(string(b))
+	code := resp.Request.URL.Query().Get("code")
+	if code == "" {
+		t.Errorf("Expected a code on the redirect back to the client callback")
+	}
 }
 
 func TestPasswordGrantType(t *testing.T) {
