@@ -1,6 +1,8 @@
 package oauth2_test
 
 import (
+	"html/template"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,43 +13,81 @@ import (
 )
 
 var (
-	bkd = oauth2.NewTestBackend()
-	prv = oauth2.NewProvider(bkd)
+	tplAuthorization = template.Must(template.New("authorization").Parse(`
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Doximity</title>
+	</head>
 
-	clt *oauth2.Client
+	<body>
+		{{ .Client.Name }}
+
+		<form method="POST">
+			<button type="submit" name="action" value="authorize">Authorize</button>
+			<button type="submit" name="action" value="deny">Deny</button>
+		</form>
+	</body>
+</html>
+`))
 )
 
-func init() {
-	var err error
+type testHTTPBackend struct {
+	AutoLogin *oauth2.User
+}
 
-	clt, err = oauth2.NewClient("Test Client", "http://example.com/callback", true, true)
+func (b *testHTTPBackend) AuthenticateRequest(w http.ResponseWriter, req *http.Request) (*oauth2.User, error) {
+	return b.AutoLogin, nil
+}
+
+func (b *testHTTPBackend) RenderAuthorizationPage(w io.Writer, data *oauth2.AuthorizationPageData) error {
+	return tplAuthorization.Execute(w, data)
+}
+
+func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.Server) {
+	inMemory := oauth2.NewInMemoryPersistence("valid_password")
+
+	// Setup some data
+	client, err := oauth2.NewClient("Test Client", "http://example.com/callback", true, true)
 	if err != nil {
 		panic(err)
 	}
+	if err := inMemory.SaveClient(client); err != nil {
+		panic(err)
+	}
 
-	bkd.ClientPersist(clt)
+	user := oauth2.User{Login: "username"}
+	if err := inMemory.SaveUser(&user); err != nil {
+		panic(err)
+	}
 
-	bkd.UserPersist(&oauth2.User{
-		Login: "username",
-	})
+	scopes := []oauth2.Scope{
+		{"basic_profile", "Basic profile information"},
+		{"email", "Your email"},
+	}
+	for _, s := range scopes {
+		if err := inMemory.SaveScope(&s); err != nil {
+			panic(err)
+		}
+	}
 
-	bkd.ScopePersist(&oauth2.Scope{"basic_profile", "Basic profile information"})
-	bkd.ScopePersist(&oauth2.Scope{"email", "Your email"})
+	provider := oauth2.NewProvider(inMemory, &testHTTPBackend{&user})
+	srv := httptest.NewServer(provider.HTTPHandler())
+
+	clientAgent := oauth2.ClientAgent{
+		AuthBaseURL: srv.URL,
+		ID:          client.ID,
+		Secret:      client.Secret,
+	}
+
+	return inMemory, &clientAgent, srv
 }
 
 func TestAuthorizationCodeGrantType(t *testing.T) {
-	srv := httptest.NewServer(prv.HTTPHandler())
+	p, clt, srv := setupProvider()
 	defer srv.Close()
 
-	clt := oauth2.ClientAgent{
-		AuthBaseURL: srv.URL,
-		ID:          clt.ID,
-		Secret:      clt.Secret,
-	}
-
 	authURL, _ := clt.AuthorizationURL("state", "basic_profile email", "http://example.com/callback")
-
-	bkd.RequestLogin = "username"
 
 	resp, err := http.Get(authURL)
 	if err != nil {
@@ -74,7 +114,7 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a2, err := bkd.AuthorizationAuthenticate(a.AccessToken)
+	a2, err := p.GetAuthorizationByAccessToken(a.AccessToken)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,21 +130,15 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 }
 
 func TestPasswordGrantType(t *testing.T) {
-	srv := httptest.NewServer(prv.HTTPHandler())
+	p, clt, srv := setupProvider()
 	defer srv.Close()
-
-	clt := oauth2.ClientAgent{
-		AuthBaseURL: srv.URL,
-		ID:          clt.ID,
-		Secret:      clt.Secret,
-	}
 
 	a, err := clt.ResourceOwnerCredentials("username", "validpassword", "basic_profile email")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	a2, err := bkd.AuthorizationAuthenticate(a.AccessToken)
+	a2, err := p.GetAuthorizationByAccessToken(a.AccessToken)
 	if err != nil {
 		t.Fatal(err)
 	}

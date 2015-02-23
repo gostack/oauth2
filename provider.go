@@ -14,13 +14,14 @@ import (
 // 	p := provider.New(oauthBackend)
 //  http.Handle("/oauth", p.HTTPHandler())
 type Provider struct {
-	backend Backend
+	persistence PersistenceBackend
+	http        HTTPBackend
 }
 
 // Creates a new Provider instance for the given backend
-func NewProvider(b Backend) *Provider {
-	p := Provider{backend: b}
-	return &p
+func NewProvider(p PersistenceBackend, h HTTPBackend) *Provider {
+	prv := Provider{p, h}
+	return &prv
 }
 
 // HTTPHandler builds and return an http.Handler that can be mounted into any net/http
@@ -30,8 +31,8 @@ func NewProvider(b Backend) *Provider {
 //  http.Handler("/oauth", p.HTTPHandler())
 func (p Provider) HTTPHandler() *http.ServeMux {
 	routes := map[string]http.Handler{
-		"/authorize": AuthorizeHTTPHandler{p.backend},
-		"/token":     TokenHTTPHandler{p.backend},
+		"/authorize": AuthorizeHTTPHandler{p.persistence, p.http},
+		"/token":     TokenHTTPHandler{p.persistence, p.http},
 	}
 
 	mux := http.NewServeMux()
@@ -91,7 +92,8 @@ func redirectTo(w http.ResponseWriter, req *http.Request, baseURL *url.URL, newV
 
 // AuthorizeHTTPHandler
 type AuthorizeHTTPHandler struct {
-	backend Backend
+	persistence PersistenceBackend
+	http        HTTPBackend
 }
 
 // ServeHTTP implements the http.Handler interface for this struct.
@@ -111,7 +113,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	}
 
 	// Get the client asnd authenticate it
-	c, err := h.backend.ClientLookup(id)
+	c, err := h.persistence.GetClientByID(id)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Invalid client_id"))
@@ -125,7 +127,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	u, err := h.backend.UserAuthenticateRequest(w, req)
+	u, err := h.http.AuthenticateRequest(w, req)
 	if err != nil {
 		redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
 		return
@@ -136,7 +138,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	}
 
 	scope := req.URL.Query().Get("scope")
-	scopes, err := h.backend.ScopesLookup(strings.Split(scope, " ")...)
+	scopes, err := h.persistence.GetScopesByID(strings.Split(scope, " ")...)
 	if err != nil {
 		redirectTo(w, req, redirectURI, url.Values{"error": []string{"invalid_scope"}})
 		return
@@ -146,7 +148,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	case "code":
 		switch req.Method {
 		case "GET":
-			h.backend.RenderAuthorizationPage(w, &AuthorizationPageData{
+			h.http.RenderAuthorizationPage(w, &AuthorizationPageData{
 				Client: c,
 				User:   u,
 				Scopes: scopes,
@@ -160,7 +162,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 					return
 				}
 
-				if err := h.backend.AuthorizationPersist(auth); err != nil {
+				if err := h.persistence.SaveAuthorization(auth); err != nil {
 					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
 					return
 				}
@@ -177,7 +179,8 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 // TokenHTTPHandler handles the requests to the /token endpoint.
 type TokenHTTPHandler struct {
-	backend Backend
+	persistence PersistenceBackend
+	http        HTTPBackend
 }
 
 // ServeHTTP implements the http.Handler interface for this struct.
@@ -192,7 +195,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Get the client asnd authenticate it
-	c, err := h.backend.ClientLookup(id)
+	c, err := h.persistence.GetClientByID(id)
 	if err != nil {
 		ew.Encode(ErrServerError)
 		return
@@ -239,7 +242,7 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 		return
 	}
 
-	auth, err := h.backend.AuthorizationCodeLookup(code)
+	auth, err := h.persistence.GetAuthorizationByCode(code)
 	if err != nil {
 		ew.Encode(ErrInvalidGrant)
 		return
@@ -251,7 +254,7 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 	}
 
 	auth.Code = ""
-	if err := h.backend.AuthorizationPersist(auth); err != nil {
+	if err := h.persistence.SaveAuthorization(auth); err != nil {
 		ew.Encode(ErrServerError)
 		return
 	}
@@ -276,7 +279,7 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 		return
 	}
 
-	u, err := h.backend.UserAuthenticate(username, password)
+	u, err := h.persistence.GetUserByCredentials(username, password)
 	if err != nil {
 		ew.Encode(ErrAccessDenied)
 		return
@@ -288,7 +291,7 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 		return
 	}
 
-	if err := h.backend.AuthorizationPersist(auth); err != nil {
+	if err := h.persistence.SaveAuthorization(auth); err != nil {
 		ew.Encode(ErrServerError)
 		return
 	}

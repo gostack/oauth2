@@ -1,9 +1,42 @@
 package oauth2
 
 import (
+	"errors"
 	"io"
 	"net/http"
 )
+
+var (
+	ErrNotFound = errors.New("object not found")
+)
+
+// PersistenceBackend defines the interface necessary for persistence, which needs to
+// be implemented by users of this library.
+// If an object can't be found by any of the Get* methods, it should return ErrNotFound.
+type PersistenceBackend interface {
+	//*
+	// Authorization persistence
+	//*
+	SaveAuthorization(a *Authorization) error
+	GetAuthorizationByCode(code string) (*Authorization, error)
+	GetAuthorizationByAccessToken(code string) (*Authorization, error)
+
+	//*
+	// Client persistence
+	//*
+	SaveClient(c *Client) error
+	GetClientByID(ID string) (*Client, error)
+
+	//*
+	// Scope persistence
+	//*
+	GetScopesByID(scopeIDs ...string) ([]*Scope, error)
+
+	//*
+	// User persistence
+	//*
+	GetUserByCredentials(username, password string) (*User, error)
+}
 
 type AuthorizationPageData struct {
 	Client *Client
@@ -11,37 +44,14 @@ type AuthorizationPageData struct {
 	Scopes []*Scope
 }
 
-type Backend interface {
-	// AuthorizationPersist persists the provided Authorization in the backend
-	AuthorizationPersist(a *Authorization) error
-
-	// AuthorizationCodeLookup takes a code and look it up
-	AuthorizationCodeLookup(code string) (*Authorization, error)
-
-	// AuthorizationAuthenticate takes an access token and returns the authorization
-	// it represents, if exists.
-	AuthorizationAuthenticate(accessToken string) (*Authorization, error)
-
-	// ClientLookup returns the Client that is identified by the provided id.
-	ClientLookup(clientID string) (*Client, error)
-
-	// ClientPerist persists the provided client in the backend
-	ClientPersist(c *Client) error
-
+type HTTPBackend interface {
 	// RenderAuthorizationPage should write to the io.Writer the HTML for the
 	// authorization page.
 	RenderAuthorizationPage(w io.Writer, data *AuthorizationPageData) error
 
-	// ScopesLookup takes scope IDs and fetches the Scope from backend
-	ScopesLookup(scopeIDs ...string) ([]*Scope, error)
-
-	// UserAuthenticate should authenticate a user using the provided username
-	// and password and return a User object or an error.
-	UserAuthenticate(username, password string) (*User, error)
-
-	// UserAuthenticateRequest should take an http.Request and either return
+	// AuthenticateRequest should take an http.Request and either return
 	// the current logged in user or generate a response that will allow the
 	// user to login, such as a redirect. If the later happens, both User and
 	// error should be nil.
-	UserAuthenticateRequest(w http.ResponseWriter, req *http.Request) (*User, error)
+	AuthenticateRequest(w http.ResponseWriter, req *http.Request) (*User, error)
 }
