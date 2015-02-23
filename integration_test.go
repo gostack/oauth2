@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"testing"
 
 	"github.com/gostack/oauth2"
@@ -66,6 +67,25 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 	code := resp.Request.URL.Query().Get("code")
 	if code == "" {
 		t.Errorf("Expected a code on the redirect back to the client callback")
+	}
+
+	a, err := clt.AuthorizationCode(code, "http://example.com/callback")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a2, err := bkd.AuthorizationAuthenticate(a.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if a2.Client.ID != clt.ID || a2.User.Login != "username" {
+		t.Errorf("Authorization does not match client or user")
+	}
+
+	a, err = clt.AuthorizationCode(code, "http://example.com/callback")
+	if !reflect.DeepEqual(err, &oauth2.ErrInvalidGrant) {
+		t.Error("Expected replay of authorization code to fail")
 	}
 }
 

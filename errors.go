@@ -8,7 +8,6 @@ type Error struct {
 	Code int    `json:"-"`
 	ID   string `json:"error"`
 	Desc string `json:"error_description,omitempty"`
-	URI  string `json:"error_uri,omitempty"`
 }
 
 func (e Error) Error() string {
@@ -26,6 +25,12 @@ var (
 		ID:   "invalid_client",
 		Code: http.StatusUnauthorized,
 		Desc: "Client authentication failed (e.g., unknown client, no client authentication included, or unsupported authentication method).",
+	}
+
+	ErrInvalidGrant = Error{
+		ID:   "invalid_grant",
+		Code: http.StatusBadRequest,
+		Desc: "The provided authorization grant (e.g., authorization code, resource owner credentials) or refresh token is invalid, expired, revoked, does not match the redirection URI used in the authorization request, or was issued to another client.",
 	}
 
 	ErrInvalidScope = Error{

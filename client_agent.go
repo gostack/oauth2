@@ -41,6 +41,15 @@ func (c ClientAgent) AuthorizationURL(state, scope, redirectURI string) (string,
 	return u.String(), nil
 }
 
+// AuthorizationCode implements the password grant type.
+func (c ClientAgent) AuthorizationCode(code, redirectURI string) (*Authorization, error) {
+	return c.doTokenRequest(url.Values{
+		"grant_type":   []string{"authorization_code"},
+		"code":         []string{code},
+		"redirect_uri": []string{redirectURI},
+	})
+}
+
 // ResourceOwnerCredentials implements the password grant type.
 func (c ClientAgent) ResourceOwnerCredentials(username, password, scope string) (*Authorization, error) {
 	return c.doTokenRequest(url.Values{
@@ -79,6 +88,8 @@ func (c ClientAgent) doTokenRequest(params url.Values) (*Authorization, error) {
 		if err := dec.Decode(&knownErr); err != nil {
 			return nil, stackerr.Wrap(err)
 		}
+
+		knownErr.Code = res.StatusCode
 		return nil, &knownErr
 	default:
 		return nil, errors.New("don't know how to handle response")

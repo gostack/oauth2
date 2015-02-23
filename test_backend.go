@@ -64,6 +64,17 @@ func (b *TestBackend) AuthorizationPersist(a *Authorization) error {
 	return nil
 }
 
+// AuthorizationCodeLookup takes a code and look it up
+func (b *TestBackend) AuthorizationCodeLookup(code string) (*Authorization, error) {
+	for _, a := range b.authorizations {
+		if a.Code == code {
+			return a, nil
+		}
+	}
+
+	return nil, ErrInvalidGrant
+}
+
 // AuthorizationAuthenticate takes an access token and returns the authorization
 // it represents, if exists.
 func (b *TestBackend) AuthorizationAuthenticate(accessToken string) (*Authorization, error) {

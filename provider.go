@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Provider represents a entire instance of a provider, connected to a specific backend.
@@ -208,11 +209,54 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	switch gt {
+	case "authorization_code":
+		h.authorizationCode(c, ew, req)
 	case "password":
 		h.resourceOwnerCredentials(c, ew, req)
 	default:
 		ew.Encode(ErrUnsupportedGrantType)
 	}
+}
+
+// authorizationCode implements that Authorization Code grant type.
+func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+	if !c.Internal {
+		ew.Encode(ErrUnauthorizedClient)
+	}
+
+	var (
+		code        = req.PostFormValue("code")
+		redirectURI = req.PostFormValue("redirect_uri")
+	)
+
+	if code == "" || redirectURI == "" {
+		ew.Encode(ErrInvalidRequest)
+		return
+	}
+
+	if redirectURI != c.RedirectURI {
+		ew.Encode(ErrInvalidGrant)
+		return
+	}
+
+	auth, err := h.backend.AuthorizationCodeLookup(code)
+	if err != nil {
+		ew.Encode(ErrInvalidGrant)
+		return
+	}
+
+	if time.Now().Unix() > auth.CreatedAt.Add(5*time.Minute).Unix() {
+		ew.Encode(ErrInvalidGrant)
+		return
+	}
+
+	auth.Code = ""
+	if err := h.backend.AuthorizationPersist(auth); err != nil {
+		ew.Encode(ErrServerError)
+		return
+	}
+
+	ew.Encode(auth)
 }
 
 // resourceOwnerCredentials implements that Resource Owner Credentials grant type.
