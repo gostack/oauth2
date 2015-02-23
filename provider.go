@@ -108,7 +108,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	u, err := h.backend.UserLoggedIn(req)
+	u, err := h.backend.UserAuthenticateRequest(w, req)
 	if err != nil {
 		redirectURI.Query().Set("error", "server_error")
 		http.Redirect(w, req, redirectURI.String(), http.StatusFound)
@@ -116,8 +116,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	}
 
 	if u == nil {
-		// http.Redirect(w, req, "http://example.com/authenticate", http.StatusFound)
-		// return
+		return
 	}
 
 	scope := req.URL.Query().Get("scope")

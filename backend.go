@@ -36,7 +36,9 @@ type Backend interface {
 	// and password and return a User object or an error.
 	UserAuthenticate(username, password string) (*User, error)
 
-	// UserLoggedIn should take an http request and extract the current logged
-	// user from it.
-	UserLoggedIn(req *http.Request) (*User, error)
+	// UserAuthenticateRequest should take an http.Request and either return
+	// the current logged in user or generate a response that will allow the
+	// user to login, such as a redirect. If the later happens, both User and
+	// error should be nil.
+	UserAuthenticateRequest(w http.ResponseWriter, req *http.Request) (*User, error)
 }

@@ -44,6 +44,9 @@ type TestBackend struct {
 
 	// scopes holds the existing scopes indexed by id
 	scopes map[string]*Scope
+
+	// RequestLogin will be used by UserAuthenticateRequest
+	RequestLogin string
 }
 
 func NewTestBackend() *TestBackend {
@@ -125,10 +128,17 @@ func (b *TestBackend) UserAuthenticate(username, password string) (*User, error)
 	return u, nil
 }
 
-// UserLoggedIn takes an http request and extract the current logged
-// user from it.
-func (b *TestBackend) UserLoggedIn(req *http.Request) (*User, error) {
-	return nil, nil
+// UserAuthenticateRequest should take an http.Request and either return
+// the current logged in user or generate a response that will allow the
+// user to login, such as a redirect. If the later happens, both User and
+// error should be nil.
+func (b *TestBackend) UserAuthenticateRequest(w http.ResponseWriter, req *http.Request) (*User, error) {
+	u, exst := b.users[b.RequestLogin]
+	if !exst {
+		return nil, ErrAccessDenied
+	}
+
+	return u, nil
 }
 
 // UserPersist persists the user in the backend, it's not part of the Backend interface

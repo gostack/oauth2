@@ -48,6 +48,8 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 	url, _ := clt.AuthorizationURL("state", "basic_profile email", "http://example.com/callback")
 	log.Println(url)
 
+	bkd.RequestLogin = "username"
+
 	resp, err := http.Get(url)
 	if err != nil {
 		t.Fatal(err)
