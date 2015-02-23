@@ -6,26 +6,27 @@ import (
 	"net/http"
 )
 
-var (
-	ErrNotFound = errors.New("object not found")
-)
+// ErrNotFound should be returned by any Get* methods defined in PersistenceBackend
+// when the object could not be found.
+var ErrNotFound = errors.New("object not found")
 
 // PersistenceBackend defines the interface necessary for persistence, which needs to
 // be implemented by users of this library.
+//
 // If an object can't be found by any of the Get* methods, it should return ErrNotFound.
 type PersistenceBackend interface {
 	//*
 	// Authorization persistence
 	//*
-	SaveAuthorization(a *Authorization) error
 	GetAuthorizationByCode(code string) (*Authorization, error)
 	GetAuthorizationByAccessToken(code string) (*Authorization, error)
+	SaveAuthorization(a *Authorization) error
 
 	//*
 	// Client persistence
 	//*
-	SaveClient(c *Client) error
 	GetClientByID(ID string) (*Client, error)
+	SaveClient(c *Client) error
 
 	//*
 	// Scope persistence
