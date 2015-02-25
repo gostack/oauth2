@@ -2,6 +2,7 @@ package oauth2
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -100,6 +101,7 @@ type AuthorizeHTTPHandler struct {
 func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	redirectURI, err := url.ParseRequestURI(req.URL.Query().Get("redirect_uri"))
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("redirect_uri is missing"))
 		return
@@ -115,6 +117,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	// Get the client asnd authenticate it
 	c, err := h.persistence.GetClientByID(id)
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Invalid client_id"))
 		return
@@ -129,6 +132,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	u, err := h.http.AuthenticateRequest(w, req)
 	if err != nil {
+		log.Println(err)
 		redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
 		return
 	}
@@ -158,11 +162,13 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 			if req.PostFormValue("action") == "authorize" {
 				auth, err := NewAuthorization(c, u, scope, true)
 				if err != nil {
+					log.Println(err)
 					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
 					return
 				}
 
 				if err := h.persistence.SaveAuthorization(auth); err != nil {
+					log.Println(err)
 					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
 					return
 				}
