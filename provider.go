@@ -245,28 +245,33 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 	)
 
 	if code == "" || redirectURI == "" {
+		log.Println("missing required parameters")
 		ew.Encode(ErrInvalidRequest)
 		return
 	}
 
 	if redirectURI != c.RedirectURI {
+		log.Println("redirect_uri does not match authorization")
 		ew.Encode(ErrInvalidGrant)
 		return
 	}
 
 	auth, err := h.persistence.GetAuthorizationByCode(code)
 	if err != nil {
+		log.Println("Couldn't find authorization for code:", err)
 		ew.Encode(ErrInvalidGrant)
 		return
 	}
 
 	if time.Now().Unix() > auth.CreatedAt.Add(5*time.Minute).Unix() {
+		log.Println("Code has expired")
 		ew.Encode(ErrInvalidGrant)
 		return
 	}
 
 	auth.Code = ""
 	if err := h.persistence.SaveAuthorization(auth); err != nil {
+		log.Println("Could not save authorization:", err)
 		ew.Encode(ErrServerError)
 		return
 	}
