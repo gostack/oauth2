@@ -199,6 +199,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Read the Authorization header for client credentials
 	id, secret, ok := req.BasicAuth()
 	if !ok {
+		log.Println("Missing or bad formatted client credentials")
 		ew.Encode(ErrInvalidRequest)
 		return
 	}
@@ -206,6 +207,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Get the client asnd authenticate it
 	c, err := h.persistence.GetClientByID(id)
 	if err != nil {
+		log.Println("Can't find client")
 		ew.Encode(ErrServerError)
 		return
 	} else if c.Secret != secret {
