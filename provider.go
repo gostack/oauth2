@@ -52,17 +52,20 @@ type Encoder interface {
 // EncoderResponseWriter that extends http.ResponseWriter to allow easy object serialization
 type EncoderResponseWriter struct {
 	http.ResponseWriter
-	enc Encoder
+	contentType string
+	enc         Encoder
 }
 
 // NewEncoderResponseWriter creates a new EncoderResponseWriter with the proper encoder for
 // the current request.
 func NewEncoderResponseWriter(w http.ResponseWriter, req *http.Request) *EncoderResponseWriter {
-	return &EncoderResponseWriter{w, json.NewEncoder(w)}
+	return &EncoderResponseWriter{w, "application/json", json.NewEncoder(w)}
 }
 
 // Encode takes an object, encoding it and calling the Write method appropriately.
 func (w EncoderResponseWriter) Encode(v interface{}) {
+	w.Header().Set("Content-Type", w.contentType)
+
 	switch err := v.(type) {
 	case Error:
 		w.WriteHeader(err.Code)
@@ -206,6 +209,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		ew.Encode(ErrServerError)
 		return
 	} else if c.Secret != secret {
+		log.Println("Invalid client password")
 		ew.Encode(ErrInvalidClient)
 		return
 	}
@@ -213,6 +217,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Read the grant_type from the body parameters
 	gt := req.PostFormValue("grant_type")
 	if gt == "" {
+		log.Println("Grant type is missing")
 		ew.Encode(ErrInvalidRequest)
 		return
 	}
@@ -223,6 +228,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case "password":
 		h.resourceOwnerCredentials(c, ew, req)
 	default:
+		log.Println("Unsupported grant type")
 		ew.Encode(ErrUnsupportedGrantType)
 	}
 }
