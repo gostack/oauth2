@@ -51,7 +51,7 @@ type Authorization struct {
 
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"`
+	ExpiresIn    int64  `json:"expires_in"`
 	RefreshToken string `json:"refresh_token,omitempty"`
 	Scope        string `json:"scope"`
 }
@@ -61,7 +61,7 @@ func NewAuthorization(c *Client, u *User, scope string, code bool) (*Authorizati
 		Client:    c,
 		User:      u,
 		CreatedAt: time.Now().UTC(),
-		ExpiresIn: 24 * time.Hour * 60,
+		ExpiresIn: int64((24 * time.Hour * 60).Seconds()),
 		Scope:     scope,
 	}
 
