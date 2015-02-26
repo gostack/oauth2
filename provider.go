@@ -183,8 +183,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		}
 
 	default:
-		redirectURI.Query().Set("error", "unsupported_response_type")
-		http.Redirect(w, req, redirectURI.String(), http.StatusFound)
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"unsupported_response_type"}})
 	}
 }
 
