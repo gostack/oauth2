@@ -251,8 +251,9 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // authorizationCode implements that Authorization Code grant type.
 func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter, req *http.Request) {
-	if !c.Internal {
+	if !c.Confidential {
 		ew.Encode(ErrUnauthorizedClient)
+		return
 	}
 
 	var (
