@@ -135,7 +135,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	u, err := h.http.AuthenticateRequest(w, req)
+	u, err := h.http.AuthenticateRequest(c, w, req)
 	if err != nil {
 		log.Println(err)
 		redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})

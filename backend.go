@@ -61,5 +61,5 @@ type HTTPBackend interface {
 	// the current logged in user or generate a response that will allow the
 	// user to login, such as a redirect. If the later happens, both User and
 	// error should be nil.
-	AuthenticateRequest(w http.ResponseWriter, req *http.Request) (*User, error)
+	AuthenticateRequest(c *Client, w http.ResponseWriter, req *http.Request) (*User, error)
 }

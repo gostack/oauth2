@@ -49,7 +49,7 @@ type testHTTPBackend struct {
 	AutoLogin *oauth2.User
 }
 
-func (b *testHTTPBackend) AuthenticateRequest(w http.ResponseWriter, req *http.Request) (*oauth2.User, error) {
+func (b *testHTTPBackend) AuthenticateRequest(c *oauth2.Client, w http.ResponseWriter, req *http.Request) (*oauth2.User, error) {
 	return b.AutoLogin, nil
 }
 
