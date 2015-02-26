@@ -196,12 +196,26 @@ type TokenHTTPHandler struct {
 func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ew := NewEncoderResponseWriter(w, req)
 
-	// Read the Authorization header for client credentials
-	id, secret, ok := req.BasicAuth()
-	if !ok {
-		log.Println("Missing or bad formatted client credentials")
-		ew.Encode(ErrInvalidRequest)
-		return
+	var id, secret string
+
+	if req.Header.Get("Authorization") != "" {
+		var ok bool
+		// Read the Authorization header for client credentials
+		id, secret, ok = req.BasicAuth()
+		if !ok {
+			log.Println("Invalid Authorization header")
+			ew.Encode(ErrInvalidRequest)
+			return
+		}
+	} else {
+		id = req.PostFormValue("client_id")
+		secret = req.PostFormValue("client_secret")
+
+		if id == "" || secret == "" {
+			log.Println("Client credentials missing")
+			ew.Encode(ErrInvalidRequest)
+			return
+		}
 	}
 
 	// Get the client asnd authenticate it
@@ -260,20 +274,20 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 
 	auth, err := h.persistence.GetAuthorizationByCode(code)
 	if err != nil {
-		log.Println("Couldn't find authorization for code:", err)
+		log.Println("couldn't find authorization for code:", err)
 		ew.Encode(ErrInvalidGrant)
 		return
 	}
 
 	if time.Now().Unix() > auth.CreatedAt.Add(5*time.Minute).Unix() {
-		log.Println("Code has expired")
+		log.Println("code has expired")
 		ew.Encode(ErrInvalidGrant)
 		return
 	}
 
 	auth.Code = ""
 	if err := h.persistence.SaveAuthorization(auth); err != nil {
-		log.Println("Could not save authorization:", err)
+		log.Println("could not save authorization:", err)
 		ew.Encode(ErrServerError)
 		return
 	}
