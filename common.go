@@ -61,7 +61,7 @@ func NewAuthorization(c *Client, u *User, scope string, code bool) (*Authorizati
 		Client:    c,
 		User:      u,
 		CreatedAt: time.Now().UTC(),
-		ExpiresIn: 3600,
+		ExpiresIn: 24 * time.Hour * 60,
 		Scope:     scope,
 	}
 
