@@ -30,6 +30,19 @@ var (
 	</body>
 </html>
 `))
+
+	tplError = template.Must(template.New("authorization").Parse(`
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Doximity</title>
+	</head>
+
+	<body>
+		{{ .Error.Desc }}
+	</body>
+</html>
+`))
 )
 
 type testHTTPBackend struct {
@@ -42,6 +55,10 @@ func (b *testHTTPBackend) AuthenticateRequest(w http.ResponseWriter, req *http.R
 
 func (b *testHTTPBackend) RenderAuthorizationPage(w io.Writer, data *oauth2.AuthorizationPageData) error {
 	return tplAuthorization.Execute(w, data)
+}
+
+func (b *testHTTPBackend) RenderErrorPage(w io.Writer, data *oauth2.ErrorPageData) error {
+	return tplError.Execute(w, data)
 }
 
 func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.Server) {

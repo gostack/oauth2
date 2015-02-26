@@ -104,32 +104,34 @@ type AuthorizeHTTPHandler struct {
 func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	redirectURI, err := url.ParseRequestURI(req.URL.Query().Get("redirect_uri"))
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("redirect_uri is missing"))
+		log.Println("redirect_uri is missing or is an invalid URL")
+		w.WriteHeader(ErrInvalidRequest.Code)
+		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
 	id := req.URL.Query().Get("client_id")
 	if id == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("client_id is missing"))
+		log.Println("client_id is missing")
+		w.WriteHeader(ErrInvalidRequest.Code)
+		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
 	// Get the client asnd authenticate it
 	c, err := h.persistence.GetClientByID(id)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Invalid client_id"))
+		log.Println("couldn't find client with id", id)
+		w.WriteHeader(ErrInvalidClient.Code)
+		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidClient})
 		return
 	}
 
 	// If provided redirectURI does not match the stored RedirectURI
 	if redirectURI.String() != c.RedirectURI {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Invalid redirect_uri"))
+		log.Println("redirect_uri does not match the client's registered")
+		w.WriteHeader(ErrInvalidRequest.Code)
+		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
