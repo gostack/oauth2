@@ -60,6 +60,14 @@ func (c ClientAgent) ResourceOwnerCredentials(username, password, scope string) 
 	})
 }
 
+// ClientCredentials implements the client credentials grant type.
+func (c ClientAgent) ClientCredentials(scope string) (*Authorization, error) {
+	return c.doTokenRequest(url.Values{
+		"grant_type": []string{"client_credentials"},
+		"scope":      []string{scope},
+	})
+}
+
 // doTokenRequest performs a request against token endpoint and returns a Authorization.
 func (c ClientAgent) doTokenRequest(params url.Values) (*Authorization, error) {
 	body := []byte(params.Encode())

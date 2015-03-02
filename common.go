@@ -42,6 +42,12 @@ func NewClient(name, redirectURI string, confidential, internal bool) (*Client, 
 	return &c, nil
 }
 
+type Scope struct {
+	ID       string
+	Desc     string
+	UserOnly bool
+}
+
 type Authorization struct {
 	Client *Client `json:"-"`
 	User   *User   `json:"-"`
@@ -56,7 +62,7 @@ type Authorization struct {
 	Scope        string `json:"scope"`
 }
 
-func NewAuthorization(c *Client, u *User, scope string, code bool) (*Authorization, error) {
+func NewAuthorization(c *Client, u *User, scope string, refresh bool, code bool) (*Authorization, error) {
 	a := Authorization{
 		Client:    c,
 		User:      u,
@@ -79,7 +85,7 @@ func NewAuthorization(c *Client, u *User, scope string, code bool) (*Authorizati
 		a.AccessToken = base64.URLEncoding.EncodeToString(b)
 	}
 
-	if c.Confidential {
+	if refresh {
 		if b, err := secureRandomBytes(128); err != nil {
 			return nil, err
 		} else {
@@ -94,9 +100,4 @@ func secureRandomBytes(bytes uint) ([]byte, error) {
 	r := make([]byte, bytes)
 	_, err := rand.Read(r)
 	return r, err
-}
-
-type Scope struct {
-	ID   string
-	Desc string
 }

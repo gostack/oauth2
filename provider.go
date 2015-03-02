@@ -165,7 +165,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 		case "POST":
 			if req.PostFormValue("action") == "authorize" {
-				auth, err := NewAuthorization(c, u, scope, true)
+				auth, err := NewAuthorization(c, u, scope, c.Confidential, true)
 				if err != nil {
 					log.Println(err)
 					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
@@ -244,6 +244,8 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		h.authorizationCode(c, ew, req)
 	case "password":
 		h.resourceOwnerCredentials(c, ew, req)
+	case "client_credentials":
+		h.clientCredentials(c, ew, req)
 	default:
 		log.Println("Unsupported grant type")
 		ew.Encode(ErrUnsupportedGrantType)
@@ -301,6 +303,7 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Internal {
 		ew.Encode(ErrUnauthorizedClient)
+		return
 	}
 
 	var (
@@ -320,7 +323,49 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 		return
 	}
 
-	auth, err := NewAuthorization(c, u, scope, false)
+	auth, err := NewAuthorization(c, u, scope, c.Confidential, false)
+	if err != nil {
+		ew.Encode(ErrServerError)
+		return
+	}
+
+	if err := h.persistence.SaveAuthorization(auth); err != nil {
+		ew.Encode(ErrServerError)
+		return
+	}
+
+	ew.Encode(auth)
+}
+
+// clientCredentials implements the Client Credentials grant type.
+func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+	if !(c.Confidential && c.Internal) {
+		ew.Encode(ErrUnauthorizedClient)
+		return
+	}
+
+	var (
+		scope = req.PostFormValue("scope")
+	)
+
+	if scope != "" {
+		scopesSl, err := h.persistence.GetScopesByID(strings.Split(scope, " ")...)
+		if err != nil {
+			log.Println("couldn't fetch scopes by id:", err)
+			ew.Encode(ErrServerError)
+			return
+		}
+
+		for _, s := range scopesSl {
+			if s.UserOnly == true {
+				log.Println("attempt to request user only scope on client credentials grant type")
+				ew.Encode(ErrInvalidScope)
+				return
+			}
+		}
+	}
+
+	auth, err := NewAuthorization(c, nil, scope, false, false)
 	if err != nil {
 		ew.Encode(ErrServerError)
 		return

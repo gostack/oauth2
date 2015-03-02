@@ -3,6 +3,7 @@ package oauth2_test
 import (
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/gostack/oauth2"
 )
+
+func init() {
+	log.SetFlags(log.LstdFlags | log.Llongfile)
+}
 
 var (
 	tplAuthorization = template.Must(template.New("authorization").Parse(`
@@ -79,8 +84,9 @@ func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.
 	}
 
 	scopes := []oauth2.Scope{
-		{"basic_profile", "Basic profile information"},
-		{"email", "Your email"},
+		{"basic_profile", "Basic profile information", true},
+		{"email", "Your email", true},
+		{"search", "Search profiles", false},
 	}
 	for _, s := range scopes {
 		if err := inMemory.SaveScope(&s); err != nil {
@@ -144,6 +150,10 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 	if !reflect.DeepEqual(err, &oauth2.ErrInvalidGrant) {
 		t.Error("Expected replay of authorization code to fail")
 	}
+
+	if a2.Scope != "basic_profile email" {
+		t.Errorf("Authorization scope does not match what was requested")
+	}
 }
 
 func TestPasswordGrantType(t *testing.T) {
@@ -162,5 +172,36 @@ func TestPasswordGrantType(t *testing.T) {
 
 	if a2.Client.ID != clt.ID || a2.User.Login != "username" {
 		t.Errorf("Authorization does not match client or user")
+	}
+
+	if a2.Scope != "basic_profile email" {
+		t.Errorf("Authorization scope does not match what was requested")
+	}
+}
+
+func TestClientCredentials(t *testing.T) {
+	p, clt, srv := setupProvider()
+	defer srv.Close()
+
+	a, err := clt.ClientCredentials("search")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a2, err := p.GetAuthorizationByAccessToken(a.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if a2.Client.ID != clt.ID {
+		t.Errorf("Authorization does not match client")
+	}
+
+	if a2.User != nil {
+		t.Errorf("Client credentials access token should not have an user associated to it")
+	}
+
+	if a2.Scope != "search" {
+		t.Errorf("Authorization scope does not match what was requested")
 	}
 }
