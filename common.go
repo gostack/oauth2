@@ -51,8 +51,6 @@ type Scope struct {
 }
 
 type Authorization struct {
-	InternalID interface{}
-
 	Client *Client `json:"-"`
 	User   *User   `json:"-"`
 

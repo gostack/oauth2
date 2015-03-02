@@ -1,5 +1,10 @@
 package oauth2
 
+type inMemoryAuthKey struct {
+	Client *Client
+	User   *User
+}
+
 // InMemoryPersistence is a simple backend implementation that keeps all data
 // in memory and it's meant to be used for test or demo purposes.
 // It is not a safe implementation, so it shouldn't be used in production.
@@ -16,7 +21,7 @@ type InMemoryPersistence struct {
 
 	// authorizations holds the existing authorizations indexed by
 	// access token
-	authorizations []*Authorization
+	authorizations map[inMemoryAuthKey]*Authorization
 
 	// scopes holds the existing scopes indexed by id
 	scopes map[string]*Scope
@@ -27,20 +32,15 @@ func NewInMemoryPersistence(validPassword string) *InMemoryPersistence {
 		validPassword:  validPassword,
 		clients:        make(map[string]*Client),
 		users:          make(map[string]*User),
-		authorizations: make([]*Authorization, 0),
+		authorizations: make(map[inMemoryAuthKey]*Authorization),
 		scopes:         make(map[string]*Scope),
 	}
 }
 
 // SaveAuthorization stores the authorization in the backend
 func (b *InMemoryPersistence) SaveAuthorization(a *Authorization) error {
-	if id, ok := a.InternalID.(int); ok {
-		b.authorizations[id] = a
-	} else {
-		a.InternalID = len(b.authorizations)
-		b.authorizations = append(b.authorizations, a)
-	}
-
+	key := inMemoryAuthKey{a.Client, a.User}
+	b.authorizations[key] = a
 	return nil
 }
 
