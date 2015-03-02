@@ -16,7 +16,7 @@ type InMemoryPersistence struct {
 
 	// authorizations holds the existing authorizations indexed by
 	// access token
-	authorizations map[string]*Authorization
+	authorizations []*Authorization
 
 	// scopes holds the existing scopes indexed by id
 	scopes map[string]*Scope
@@ -27,14 +27,20 @@ func NewInMemoryPersistence(validPassword string) *InMemoryPersistence {
 		validPassword:  validPassword,
 		clients:        make(map[string]*Client),
 		users:          make(map[string]*User),
-		authorizations: make(map[string]*Authorization),
+		authorizations: make([]*Authorization, 0),
 		scopes:         make(map[string]*Scope),
 	}
 }
 
 // SaveAuthorization stores the authorization in the backend
 func (b *InMemoryPersistence) SaveAuthorization(a *Authorization) error {
-	b.authorizations[a.AccessToken] = a
+	if id, ok := a.InternalID.(int); ok {
+		b.authorizations[id] = a
+	} else {
+		a.InternalID = len(b.authorizations)
+		b.authorizations = append(b.authorizations, a)
+	}
+
 	return nil
 }
 
@@ -46,18 +52,31 @@ func (b *InMemoryPersistence) GetAuthorizationByCode(code string) (*Authorizatio
 		}
 	}
 
-	return nil, ErrInvalidGrant
+	return nil, ErrNotFound
 }
 
 // GetAuthorizationByAccessToken takes an access token and returns the authorization
 // it represents, if exists.
 func (b *InMemoryPersistence) GetAuthorizationByAccessToken(accessToken string) (*Authorization, error) {
-	a, exst := b.authorizations[accessToken]
-	if !exst {
-		return nil, ErrAccessDenied
+	for _, a := range b.authorizations {
+		if a.AccessToken == accessToken {
+			return a, nil
+		}
 	}
 
-	return a, nil
+	return nil, ErrNotFound
+}
+
+// GetAuthorizationByRefreshToken takes an access token and returns the authorization
+// it represents, if exists.
+func (b *InMemoryPersistence) GetAuthorizationByRefreshToken(refreshToken string) (*Authorization, error) {
+	for _, a := range b.authorizations {
+		if a.RefreshToken == refreshToken {
+			return a, nil
+		}
+	}
+
+	return nil, ErrNotFound
 }
 
 // SaveClient persists the client
@@ -70,7 +89,7 @@ func (b *InMemoryPersistence) SaveClient(c *Client) error {
 func (b *InMemoryPersistence) GetClientByID(ID string) (*Client, error) {
 	c, exst := b.clients[ID]
 	if !exst {
-		return nil, ErrInvalidClient
+		return nil, ErrNotFound
 	}
 
 	return c, nil
@@ -82,7 +101,7 @@ func (b *InMemoryPersistence) GetScopesByID(IDs ...string) ([]*Scope, error) {
 	for _, id := range IDs {
 		scope, exst := b.scopes[id]
 		if !exst {
-			return nil, ErrInvalidScope
+			return nil, ErrNotFound
 		}
 
 		s = append(s, scope)

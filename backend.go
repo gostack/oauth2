@@ -19,7 +19,8 @@ type PersistenceBackend interface {
 	// Authorization persistence
 	//*
 	GetAuthorizationByCode(code string) (*Authorization, error)
-	GetAuthorizationByAccessToken(code string) (*Authorization, error)
+	GetAuthorizationByAccessToken(accessToken string) (*Authorization, error)
+	GetAuthorizationByRefreshToken(refreshToken string) (*Authorization, error)
 	SaveAuthorization(a *Authorization) error
 
 	//*

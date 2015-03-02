@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
+	"strings"
 	"time"
 )
 
@@ -49,17 +51,18 @@ type Scope struct {
 }
 
 type Authorization struct {
+	InternalID interface{}
+
 	Client *Client `json:"-"`
 	User   *User   `json:"-"`
 
-	Code      string    `json:"-"`
-	CreatedAt time.Time `json:"-"`
-
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int64  `json:"expires_in"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	Scope        string `json:"scope"`
+	Code         string    `json:"-"`
+	CreatedAt    time.Time `json:"-"`
+	AccessToken  string    `json:"access_token"`
+	TokenType    string    `json:"token_type"`
+	ExpiresIn    int64     `json:"expires_in"`
+	RefreshToken string    `json:"refresh_token,omitempty"`
+	Scope        string    `json:"scope"`
 }
 
 func NewAuthorization(c *Client, u *User, scope string, refresh bool, code bool) (*Authorization, error) {
@@ -94,6 +97,40 @@ func NewAuthorization(c *Client, u *User, scope string, refresh bool, code bool)
 	}
 
 	return &a, nil
+}
+
+func (a *Authorization) Refresh(scope string) error {
+	if a.RefreshToken == "" {
+		return errors.New("can't refresh a token that has no refresh token")
+	}
+
+	existingScopes := strings.Split(a.Scope, " ")
+	newScopes := strings.Split(scope, " ")
+	finalScopes := make([]string, 0)
+
+	for _, ns := range newScopes {
+		for _, es := range existingScopes {
+			if ns == es {
+				finalScopes = append(finalScopes, ns)
+			}
+		}
+	}
+
+	a.Scope = strings.Join(finalScopes, " ")
+
+	if b, err := secureRandomBytes(64); err != nil {
+		return err
+	} else {
+		a.AccessToken = base64.URLEncoding.EncodeToString(b)
+	}
+
+	if b, err := secureRandomBytes(128); err != nil {
+		return err
+	} else {
+		a.RefreshToken = base64.URLEncoding.EncodeToString(b)
+	}
+
+	return nil
 }
 
 func secureRandomBytes(bytes uint) ([]byte, error) {

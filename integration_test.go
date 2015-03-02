@@ -132,27 +132,51 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 		t.Errorf("Expected a code on the redirect back to the client callback")
 	}
 
-	a, err := clt.AuthorizationCode(code, "http://example.com/callback")
+	auth, err := clt.AuthorizationCode(code, "http://example.com/callback")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	a2, err := p.GetAuthorizationByAccessToken(a.AccessToken)
+	persistedAuth, err := p.GetAuthorizationByAccessToken(auth.AccessToken)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if a2.Client.ID != clt.ID || a2.User.Login != "username" {
+	if persistedAuth.Client.ID != clt.ID || persistedAuth.User.Login != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
 
-	a, err = clt.AuthorizationCode(code, "http://example.com/callback")
+	if persistedAuth.Scope != "basic_profile email" {
+		t.Errorf("Authorization scope does not match what was requested")
+	}
+
+	_, err = clt.AuthorizationCode(code, "http://example.com/callback")
 	if !reflect.DeepEqual(err, &oauth2.ErrInvalidGrant) {
 		t.Error("Expected replay of authorization code to fail")
 	}
 
-	if a2.Scope != "basic_profile email" {
-		t.Errorf("Authorization scope does not match what was requested")
+	// Let's refresh the token now
+	refreshedAuth, err := clt.RefreshToken(auth.RefreshToken, "basic_profile search")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	refreshedPersistedAuth, err := p.GetAuthorizationByAccessToken(refreshedAuth.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if refreshedPersistedAuth.Client.ID != clt.ID || refreshedPersistedAuth.User.Login != "username" {
+		t.Errorf("Authorization does not match client or user")
+	}
+
+	if refreshedPersistedAuth.Scope != "basic_profile" {
+		t.Errorf("Authorization scope does not match what's expected")
+	}
+
+	persistedAuth, err = p.GetAuthorizationByAccessToken(auth.AccessToken)
+	if err != oauth2.ErrNotFound {
+		t.Error("expected old access token to not be valid anymore")
 	}
 }
 

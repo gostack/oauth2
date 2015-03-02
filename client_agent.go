@@ -68,6 +68,15 @@ func (c ClientAgent) ClientCredentials(scope string) (*Authorization, error) {
 	})
 }
 
+// RefreshToken implements the refresh token flow
+func (c ClientAgent) RefreshToken(refreshToken, scope string) (*Authorization, error) {
+	return c.doTokenRequest(url.Values{
+		"grant_type":    []string{"refresh_token"},
+		"refresh_token": []string{refreshToken},
+		"scope":         []string{scope},
+	})
+}
+
 // doTokenRequest performs a request against token endpoint and returns a Authorization.
 func (c ClientAgent) doTokenRequest(params url.Values) (*Authorization, error) {
 	body := []byte(params.Encode())

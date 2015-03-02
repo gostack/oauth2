@@ -246,6 +246,8 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		h.resourceOwnerCredentials(c, ew, req)
 	case "client_credentials":
 		h.clientCredentials(c, ew, req)
+	case "refresh_token":
+		h.refreshToken(c, ew, req)
 	default:
 		log.Println("Unsupported grant type")
 		ew.Encode(ErrUnsupportedGrantType)
@@ -372,6 +374,40 @@ func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter
 	}
 
 	if err := h.persistence.SaveAuthorization(auth); err != nil {
+		ew.Encode(ErrServerError)
+		return
+	}
+
+	ew.Encode(auth)
+}
+
+// refreshToken implements the token refresh flow
+func (h TokenHTTPHandler) refreshToken(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+	if !c.Confidential {
+		ew.Encode(ErrUnauthorizedClient)
+		return
+	}
+
+	var (
+		refreshToken = req.PostFormValue("refresh_token")
+		scope        = req.PostFormValue("scope")
+	)
+
+	auth, err := h.persistence.GetAuthorizationByRefreshToken(refreshToken)
+	if err != nil {
+		log.Println("invalida refresh token:", refreshToken)
+		ew.Encode(ErrInvalidGrant)
+		return
+	}
+
+	if err := auth.Refresh(scope); err != nil {
+		log.Println("failed to refresh token")
+		ew.Encode(ErrServerError)
+		return
+	}
+
+	if err := h.persistence.SaveAuthorization(auth); err != nil {
+		log.Println("failed to persist authorization")
 		ew.Encode(ErrServerError)
 		return
 	}
