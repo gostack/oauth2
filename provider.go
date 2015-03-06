@@ -164,7 +164,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 			})
 
 		case "POST":
-			if req.PostFormValue("action") == "authorize" {
+			if req.FormValue("action") == "authorize" {
 				auth, err := NewAuthorization(c, u, scope, c.Confidential, true)
 				if err != nil {
 					log.Println(err)
@@ -209,8 +209,8 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	} else {
-		id = req.PostFormValue("client_id")
-		secret = req.PostFormValue("client_secret")
+		id = req.FormValue("client_id")
+		secret = req.FormValue("client_secret")
 
 		if id == "" || secret == "" {
 			log.Println("Client credentials missing")
@@ -232,7 +232,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Read the grant_type from the body parameters
-	gt := req.PostFormValue("grant_type")
+	gt := req.FormValue("grant_type")
 	if gt == "" {
 		log.Println("Grant type is missing")
 		ew.Encode(ErrInvalidRequest)
@@ -246,6 +246,8 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		h.resourceOwnerCredentials(c, ew, req)
 	case "client_credentials":
 		h.clientCredentials(c, ew, req)
+	case "client_trust":
+		h.clientTrust(c, ew, req)
 	case "refresh_token":
 		h.refreshToken(c, ew, req)
 	default:
@@ -262,8 +264,8 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 	}
 
 	var (
-		code        = req.PostFormValue("code")
-		redirectURI = req.PostFormValue("redirect_uri")
+		code        = req.FormValue("code")
+		redirectURI = req.FormValue("redirect_uri")
 	)
 
 	if code == "" || redirectURI == "" {
@@ -309,9 +311,9 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 	}
 
 	var (
-		username = req.PostFormValue("username")
-		password = req.PostFormValue("password")
-		scope    = req.PostFormValue("scope")
+		username = req.FormValue("username")
+		password = req.FormValue("password")
+		scope    = req.FormValue("scope")
 	)
 
 	if username == "" || password == "" {
@@ -347,7 +349,7 @@ func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter
 	}
 
 	var (
-		scope = req.PostFormValue("scope")
+		scope = req.FormValue("scope")
 	)
 
 	if scope != "" {
@@ -381,6 +383,40 @@ func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter
 	ew.Encode(auth)
 }
 
+// clientTrust implements the Client Trust grant type, which is a extension defined by this application.
+// It allows a client that is both internal and confidential to issue a new access token directly just
+// through a user login.
+func (h TokenHTTPHandler) clientTrust(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+	if !(c.Confidential && c.Internal) {
+		ew.Encode(ErrUnauthorizedClient)
+		return
+	}
+
+	var (
+		login = req.FormValue("login")
+		scope = req.FormValue("scope")
+	)
+
+	u, err := h.persistence.GetUserByLogin(login)
+	if err != nil {
+		ew.Encode(ErrInvalidGrant)
+		return
+	}
+
+	auth, err := NewAuthorization(c, u, scope, false, false)
+	if err != nil {
+		ew.Encode(ErrServerError)
+		return
+	}
+
+	if err := h.persistence.SaveAuthorization(auth); err != nil {
+		ew.Encode(ErrServerError)
+		return
+	}
+
+	ew.Encode(auth)
+}
+
 // refreshToken implements the token refresh flow
 func (h TokenHTTPHandler) refreshToken(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Confidential {
@@ -389,8 +425,8 @@ func (h TokenHTTPHandler) refreshToken(c *Client, ew *EncoderResponseWriter, req
 	}
 
 	var (
-		refreshToken = req.PostFormValue("refresh_token")
-		scope        = req.PostFormValue("scope")
+		refreshToken = req.FormValue("refresh_token")
+		scope        = req.FormValue("scope")
 	)
 
 	auth, err := h.persistence.GetAuthorizationByRefreshToken(refreshToken)

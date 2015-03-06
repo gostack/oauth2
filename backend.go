@@ -37,7 +37,8 @@ type PersistenceBackend interface {
 	//*
 	// User persistence
 	//*
-	GetUserByCredentials(username, password string) (*User, error)
+	GetUserByLogin(login string) (*User, error)
+	GetUserByCredentials(login, password string) (*User, error)
 }
 
 type AuthorizationPageData struct {

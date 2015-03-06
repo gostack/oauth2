@@ -68,6 +68,15 @@ func (c ClientAgent) ClientCredentials(scope string) (*Authorization, error) {
 	})
 }
 
+// ClientTrust implements the client trust grant type.
+func (c ClientAgent) ClientTrust(login, scope string) (*Authorization, error) {
+	return c.doTokenRequest(url.Values{
+		"grant_type": []string{"client_trust"},
+		"login":      []string{login},
+		"scope":      []string{scope},
+	})
+}
+
 // RefreshToken implements the refresh token flow
 func (c ClientAgent) RefreshToken(refreshToken, scope string) (*Authorization, error) {
 	return c.doTokenRequest(url.Values{
