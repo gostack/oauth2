@@ -2,7 +2,6 @@ package oauth2
 
 import (
 	"errors"
-	"io"
 	"net/http"
 )
 
@@ -53,10 +52,10 @@ type ErrorPageData struct {
 type HTTPBackend interface {
 	// RenderAuthorizationPage should write to the io.Writer the HTML for the
 	// authorization page.
-	RenderAuthorizationPage(w io.Writer, data *AuthorizationPageData) error
+	RenderAuthorizationPage(w http.ResponseWriter, req *http.Request, data *AuthorizationPageData) error
 
 	// RenderErrorPage should write to the io.Writer the HTML the error page.
-	RenderErrorPage(w io.Writer, err *ErrorPageData) error
+	RenderErrorPage(w http.ResponseWriter, req *http.Request, err *ErrorPageData) error
 
 	// AuthenticateRequest should take an http.Request and either return
 	// the current logged in user or generate a response that will allow the

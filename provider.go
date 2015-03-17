@@ -106,7 +106,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if err != nil {
 		log.Println("redirect_uri is missing or is an invalid URL")
 		w.WriteHeader(ErrInvalidRequest.Code)
-		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidRequest})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
@@ -114,7 +114,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if id == "" {
 		log.Println("client_id is missing")
 		w.WriteHeader(ErrInvalidRequest.Code)
-		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidRequest})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
@@ -123,7 +123,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if err != nil {
 		log.Println("couldn't find client with id", id)
 		w.WriteHeader(ErrInvalidClient.Code)
-		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidClient})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidClient})
 		return
 	}
 
@@ -131,7 +131,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if redirectURI.String() != c.RedirectURI {
 		log.Println("redirect_uri does not match the client's registered")
 		w.WriteHeader(ErrInvalidRequest.Code)
-		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidRequest})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
@@ -157,7 +157,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	case "code":
 		switch req.Method {
 		case "GET":
-			h.http.RenderAuthorizationPage(w, &AuthorizationPageData{
+			h.http.RenderAuthorizationPage(w, req, &AuthorizationPageData{
 				Client: c,
 				User:   u,
 				Scopes: scopes,
