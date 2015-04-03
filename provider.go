@@ -305,7 +305,7 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 // resourceOwnerCredentials implements that Resource Owner Credentials grant type.
 func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Internal {
-		log.println("client not internal")
+		log.Println("client not internal")
 		ew.Encode(ErrUnauthorizedClient)
 		return
 	}
@@ -317,7 +317,7 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 	)
 
 	if username == "" || password == "" {
-		log.println("username or password is empty")
+		log.Println("username or password is empty")
 		ew.Encode(ErrInvalidRequest)
 		return
 	}
@@ -331,13 +331,13 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 
 	auth, err := NewAuthorization(c, u, scope, c.Confidential, false)
 	if err != nil {
-		log.println(err)
+		log.Println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
 
 	if err := h.persistence.SaveAuthorization(auth); err != nil {
-		log.println(err)
+		log.Println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
@@ -376,13 +376,13 @@ func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter
 
 	auth, err := NewAuthorization(c, nil, scope, false, false)
 	if err != nil {
-		log.println(err)
+		log.Println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
 
 	if err := h.persistence.SaveAuthorization(auth); err != nil {
-		log.println(err)
+		log.Println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
