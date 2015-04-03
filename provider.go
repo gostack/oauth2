@@ -257,6 +257,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // authorizationCode implements that Authorization Code grant type.
 func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Confidential {
+		log.Println("client is not confidential")
 		ew.Encode(ErrUnauthorizedClient)
 		return
 	}
@@ -304,6 +305,7 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 // resourceOwnerCredentials implements that Resource Owner Credentials grant type.
 func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Internal {
+		log.println("client not internal")
 		ew.Encode(ErrUnauthorizedClient)
 		return
 	}
@@ -315,23 +317,27 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 	)
 
 	if username == "" || password == "" {
+		log.println("username or password is empty")
 		ew.Encode(ErrInvalidRequest)
 		return
 	}
 
 	u, err := h.persistence.GetUserByCredentials(username, password)
 	if err != nil {
+		log.Println("invalid credentials")
 		ew.Encode(ErrAccessDenied)
 		return
 	}
 
 	auth, err := NewAuthorization(c, u, scope, c.Confidential, false)
 	if err != nil {
+		log.println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
 
 	if err := h.persistence.SaveAuthorization(auth); err != nil {
+		log.println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
@@ -342,6 +348,7 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 // clientCredentials implements the Client Credentials grant type.
 func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !(c.Confidential && c.Internal) {
+		log.Println("client is not confidential and internal")
 		ew.Encode(ErrUnauthorizedClient)
 		return
 	}
@@ -369,11 +376,13 @@ func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter
 
 	auth, err := NewAuthorization(c, nil, scope, false, false)
 	if err != nil {
+		log.println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
 
 	if err := h.persistence.SaveAuthorization(auth); err != nil {
+		log.println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
@@ -384,6 +393,7 @@ func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter
 // refreshToken implements the token refresh flow
 func (h TokenHTTPHandler) refreshToken(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Confidential {
+		log.Println("client not confidential")
 		ew.Encode(ErrUnauthorizedClient)
 		return
 	}
