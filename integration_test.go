@@ -2,7 +2,6 @@ package oauth2_test
 
 import (
 	"html/template"
-	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -58,11 +57,11 @@ func (b *testHTTPBackend) AuthenticateRequest(c *oauth2.Client, w http.ResponseW
 	return b.AutoLogin, nil
 }
 
-func (b *testHTTPBackend) RenderAuthorizationPage(w io.Writer, data *oauth2.AuthorizationPageData) error {
+func (b *testHTTPBackend) RenderAuthorizationPage(w http.ResponseWriter, req *http.Request, data *oauth2.AuthorizationPageData) error {
 	return tplAuthorization.Execute(w, data)
 }
 
-func (b *testHTTPBackend) RenderErrorPage(w io.Writer, data *oauth2.ErrorPageData) error {
+func (b *testHTTPBackend) RenderErrorPage(w http.ResponseWriter, req *http.Request, data *oauth2.ErrorPageData) error {
 	return tplError.Execute(w, data)
 }
 

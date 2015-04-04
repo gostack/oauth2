@@ -106,7 +106,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if err != nil {
 		log.Println("redirect_uri is missing or is an invalid URL")
 		w.WriteHeader(ErrInvalidRequest.Code)
-		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidRequest})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
@@ -114,7 +114,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if id == "" {
 		log.Println("client_id is missing")
 		w.WriteHeader(ErrInvalidRequest.Code)
-		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidRequest})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
@@ -123,7 +123,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if err != nil {
 		log.Println("couldn't find client with id", id)
 		w.WriteHeader(ErrInvalidClient.Code)
-		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidClient})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidClient})
 		return
 	}
 
@@ -131,7 +131,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if redirectURI.String() != c.RedirectURI {
 		log.Println("redirect_uri does not match the client's registered")
 		w.WriteHeader(ErrInvalidRequest.Code)
-		h.http.RenderErrorPage(w, &ErrorPageData{ErrInvalidRequest})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
@@ -157,7 +157,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	case "code":
 		switch req.Method {
 		case "GET":
-			h.http.RenderAuthorizationPage(w, &AuthorizationPageData{
+			h.http.RenderAuthorizationPage(w, req, &AuthorizationPageData{
 				Client: c,
 				User:   u,
 				Scopes: scopes,
@@ -259,6 +259,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // authorizationCode implements that Authorization Code grant type.
 func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Confidential {
+		log.Println("client is not confidential")
 		ew.Encode(ErrUnauthorizedClient)
 		return
 	}
@@ -306,6 +307,7 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 // resourceOwnerCredentials implements that Resource Owner Credentials grant type.
 func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Internal {
+		log.Println("client not internal")
 		ew.Encode(ErrUnauthorizedClient)
 		return
 	}
@@ -317,23 +319,27 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 	)
 
 	if username == "" || password == "" {
+		log.Println("username or password is empty")
 		ew.Encode(ErrInvalidRequest)
 		return
 	}
 
 	u, err := h.persistence.GetUserByCredentials(username, password)
 	if err != nil {
+		log.Println("invalid credentials")
 		ew.Encode(ErrAccessDenied)
 		return
 	}
 
 	auth, err := NewAuthorization(c, u, scope, c.Confidential, false)
 	if err != nil {
+		log.Println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
 
 	if err := h.persistence.SaveAuthorization(auth); err != nil {
+		log.Println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
@@ -344,6 +350,7 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 // clientCredentials implements the Client Credentials grant type.
 func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !(c.Confidential && c.Internal) {
+		log.Println("client is not confidential and internal")
 		ew.Encode(ErrUnauthorizedClient)
 		return
 	}
@@ -371,11 +378,13 @@ func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter
 
 	auth, err := NewAuthorization(c, nil, scope, false, false)
 	if err != nil {
+		log.Println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
 
 	if err := h.persistence.SaveAuthorization(auth); err != nil {
+		log.Println(err)
 		ew.Encode(ErrServerError)
 		return
 	}
@@ -420,6 +429,7 @@ func (h TokenHTTPHandler) clientTrust(c *Client, ew *EncoderResponseWriter, req 
 // refreshToken implements the token refresh flow
 func (h TokenHTTPHandler) refreshToken(c *Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Confidential {
+		log.Println("client not confidential")
 		ew.Encode(ErrUnauthorizedClient)
 		return
 	}
