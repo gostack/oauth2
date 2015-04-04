@@ -76,7 +76,7 @@ func NewAuthorization(c *Client, u *User, scope string, refresh bool, code bool)
 		if b, err := secureRandomBytes(16); err != nil {
 			return nil, err
 		} else {
-			a.Code = hex.EncodeToString(b)
+			a.Code = base64.URLEncoding.EncodeToString(b)
 		}
 	}
 

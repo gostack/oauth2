@@ -228,30 +228,3 @@ func TestClientCredentials(t *testing.T) {
 		t.Errorf("Authorization scope does not match what was requested")
 	}
 }
-
-func TestClientTrust(t *testing.T) {
-	p, clt, srv := setupProvider()
-	defer srv.Close()
-
-	a, err := clt.ClientTrust("username", "basic search")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	a2, err := p.GetAuthorizationByAccessToken(a.AccessToken)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if a2.Client.ID != clt.ID {
-		t.Errorf("Authorization does not match client")
-	}
-
-	if a2.User.Login != "username" {
-		t.Errorf("authorization is associated with wrong user")
-	}
-
-	if a2.Scope != "basic search" {
-		t.Errorf("Authorization scope does not match what was requested")
-	}
-}
