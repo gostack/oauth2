@@ -256,12 +256,6 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // authorizationCode implements that Authorization Code grant type.
 func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter, req *http.Request) {
-	if !c.Confidential {
-		log.Println("client is not confidential")
-		ew.Encode(ErrUnauthorizedClient)
-		return
-	}
-
 	var (
 		code        = req.PostFormValue("code")
 		redirectURI = req.PostFormValue("redirect_uri")
@@ -402,6 +396,12 @@ func (h TokenHTTPHandler) refreshToken(c *Client, ew *EncoderResponseWriter, req
 		refreshToken = req.PostFormValue("refresh_token")
 		scope        = req.PostFormValue("scope")
 	)
+
+	if refreshToken == "" || scope == "" {
+		log.Println("missing required parameters")
+		ew.Encode(ErrInvalidRequest)
+		return
+	}
 
 	auth, err := h.persistence.GetAuthorizationByRefreshToken(refreshToken)
 	if err != nil {
