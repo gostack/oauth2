@@ -179,7 +179,10 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 				}
 
 				redirectTo(w, req, redirectURI, url.Values{"code": []string{auth.Code}, "state": []string{req.URL.Query().Get("state")}})
+				return
 			}
+
+			redirectTo(w, req, redirectURI, url.Values{"error": []string{"access_denied"}})
 		}
 
 	default:

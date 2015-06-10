@@ -179,6 +179,33 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 	}
 }
 
+func TestAuthorizationCodeGrantTypeDeny(t *testing.T) {
+	_, clt, srv := setupProvider()
+	defer srv.Close()
+
+	authURL, _ := clt.AuthorizationURL("state", "basic_profile email", "http://example.com/callback")
+
+	resp, err := http.Get(authURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Error("Expected authorize HTML page to be rendered properly")
+	}
+
+	// When the user click authorize, it basically just re-submit the same page with
+	// POST data specifying which button was clicked. Here we simulate this.
+	resp, err = http.PostForm(authURL, url.Values{"action": []string{"deny"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	urlErr := resp.Request.URL.Query().Get("error")
+	if urlErr != "access_denied" {
+		t.Errorf("Expected error to be access_denied")
+	}
+}
+
 func TestPasswordGrantType(t *testing.T) {
 	p, clt, srv := setupProvider()
 	defer srv.Close()
