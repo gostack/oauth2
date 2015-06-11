@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gostack/oauth2"
+	"golang.org/x/net/context"
 )
 
 func init() {
@@ -53,15 +54,15 @@ type testHTTPBackend struct {
 	AutoLogin *oauth2.User
 }
 
-func (b *testHTTPBackend) AuthenticateRequest(c *oauth2.Client, w http.ResponseWriter, req *http.Request) (*oauth2.User, error) {
+func (b *testHTTPBackend) AuthenticateRequest(c *oauth2.Client, ctx context.Context, w http.ResponseWriter, req *http.Request) (*oauth2.User, error) {
 	return b.AutoLogin, nil
 }
 
-func (b *testHTTPBackend) RenderAuthorizationPage(w http.ResponseWriter, req *http.Request, data *oauth2.AuthorizationPageData) error {
+func (b *testHTTPBackend) RenderAuthorizationPage(ctx context.Context, w http.ResponseWriter, req *http.Request, data *oauth2.AuthorizationPageData) error {
 	return tplAuthorization.Execute(w, data)
 }
 
-func (b *testHTTPBackend) RenderErrorPage(w http.ResponseWriter, req *http.Request, data *oauth2.ErrorPageData) error {
+func (b *testHTTPBackend) RenderErrorPage(ctx context.Context, w http.ResponseWriter, req *http.Request, data *oauth2.ErrorPageData) error {
 	return tplError.Execute(w, data)
 }
 
@@ -94,7 +95,7 @@ func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.
 	}
 
 	provider := oauth2.NewProvider(inMemory, &testHTTPBackend{&user})
-	srv := httptest.NewServer(provider.HTTPHandler())
+	srv := httptest.NewServer(provider.HTTPHandler(context.Background()))
 
 	clientAgent := oauth2.ClientAgent{
 		AuthBaseURL: srv.URL,
