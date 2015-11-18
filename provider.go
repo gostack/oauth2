@@ -154,6 +154,8 @@ func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWrit
 		return
 	}
 
+	state := req.URL.Query().Get("state")
+
 	u, err := h.http.AuthenticateRequest(c, ctx, w, req)
 	if err != nil {
 		log.Println(err)
@@ -168,7 +170,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWrit
 	scope := req.URL.Query().Get("scope")
 	scopes, err := h.persistence.GetScopesByID(strings.Split(scope, " ")...)
 	if err != nil {
-		redirectTo(w, req, redirectURI, url.Values{"error": []string{"invalid_scope"}})
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"invalid_scope"}, "state": []string{state}})
 		return
 	}
 
@@ -187,17 +189,17 @@ func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWrit
 				auth, err := NewAuthorization(c, u, scope, c.Confidential, true)
 				if err != nil {
 					log.Println(err)
-					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
+					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
 					return
 				}
 
 				if err := h.persistence.SaveAuthorization(auth); err != nil {
 					log.Println(err)
-					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
+					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
 					return
 				}
 
-				redirectTo(w, req, redirectURI, url.Values{"code": []string{auth.Code}, "state": []string{req.URL.Query().Get("state")}})
+				redirectTo(w, req, redirectURI, url.Values{"code": []string{auth.Code}, "state": []string{state}})
 				return
 			}
 
