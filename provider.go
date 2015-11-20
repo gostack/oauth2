@@ -159,7 +159,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWrit
 	u, err := h.http.AuthenticateRequest(c, ctx, w, req)
 	if err != nil {
 		log.Println(err)
-		redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}})
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
 		return
 	}
 
@@ -203,11 +203,11 @@ func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWrit
 				return
 			}
 
-			redirectTo(w, req, redirectURI, url.Values{"error": []string{"access_denied"}})
+			redirectTo(w, req, redirectURI, url.Values{"error": []string{"access_denied"}, "state": []string{state}})
 		}
 
 	default:
-		redirectTo(w, req, redirectURI, url.Values{"error": []string{"unsupported_response_type"}})
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"unsupported_response_type"}, "state": []string{state}})
 	}
 }
 
