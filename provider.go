@@ -23,9 +23,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/gostack/web"
-	"golang.org/x/net/context"
 )
 
 // Provider represents a entire instance of a provider, connected to a specific backend.
@@ -49,10 +46,10 @@ func NewProvider(p PersistenceBackend, h HTTPBackend) *Provider {
 //
 // For example, this will define all oauth routes on the /oauth namespace (i.e. /oauth/token):
 //  http.Handler("/oauth", p.HTTPHandler())
-func (p Provider) HTTPHandler(ctx context.Context) http.Handler {
+func (p Provider) HTTPHandler() http.Handler {
 	routes := map[string]http.Handler{
-		"/authorize": web.ContextHandlerAdapter(ctx, AuthorizeHTTPHandler{p.persistence, p.http}),
-		"/token":     web.ContextHandlerAdapter(ctx, TokenHTTPHandler{p.persistence, p.http}),
+		"/authorize": AuthorizeHTTPHandler{p.persistence, p.http},
+		"/token":     TokenHTTPHandler{p.persistence, p.http},
 	}
 
 	mux := http.NewServeMux()
@@ -120,12 +117,12 @@ type AuthorizeHTTPHandler struct {
 }
 
 // ServeHTTP implements the http.Handler interface for this struct.
-func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	redirectURI, err := url.ParseRequestURI(req.URL.Query().Get("redirect_uri"))
 	if err != nil {
 		log.Println("redirect_uri is missing or is an invalid URL")
 		w.WriteHeader(ErrInvalidRequest.Code)
-		h.http.RenderErrorPage(ctx, w, req, &ErrorPageData{ErrInvalidRequest})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
@@ -133,7 +130,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWrit
 	if id == "" {
 		log.Println("client_id is missing")
 		w.WriteHeader(ErrInvalidRequest.Code)
-		h.http.RenderErrorPage(ctx, w, req, &ErrorPageData{ErrInvalidRequest})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
@@ -142,7 +139,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWrit
 	if err != nil {
 		log.Println("couldn't find client with id", id)
 		w.WriteHeader(ErrInvalidClient.Code)
-		h.http.RenderErrorPage(ctx, w, req, &ErrorPageData{ErrInvalidClient})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidClient})
 		return
 	}
 
@@ -150,13 +147,13 @@ func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWrit
 	if redirectURI.String() != c.RedirectURI {
 		log.Println("redirect_uri does not match the client's registered")
 		w.WriteHeader(ErrInvalidRequest.Code)
-		h.http.RenderErrorPage(ctx, w, req, &ErrorPageData{ErrInvalidRequest})
+		h.http.RenderErrorPage(w, req, &ErrorPageData{ErrInvalidRequest})
 		return
 	}
 
 	state := req.URL.Query().Get("state")
 
-	u, err := h.http.AuthenticateRequest(c, ctx, w, req)
+	u, err := h.http.AuthenticateRequest(c, w, req)
 	if err != nil {
 		log.Println(err)
 		redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
@@ -178,7 +175,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWrit
 	case "code":
 		switch req.Method {
 		case "GET":
-			h.http.RenderAuthorizationPage(ctx, w, req, &AuthorizationPageData{
+			h.http.RenderAuthorizationPage(w, req, &AuthorizationPageData{
 				Client: c,
 				User:   u,
 				Scopes: scopes,
@@ -218,7 +215,7 @@ type TokenHTTPHandler struct {
 }
 
 // ServeHTTP implements the http.Handler interface for this struct.
-func (h TokenHTTPHandler) ServeHTTP(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ew := NewEncoderResponseWriter(w, req)
 
 	var id, secret string

@@ -19,8 +19,6 @@ package oauth2
 import (
 	"errors"
 	"net/http"
-
-	"golang.org/x/net/context"
 )
 
 // ErrNotFound should be returned by any Get* methods defined in PersistenceBackend
@@ -70,14 +68,14 @@ type ErrorPageData struct {
 type HTTPBackend interface {
 	// RenderAuthorizationPage should write to the io.Writer the HTML for the
 	// authorization page.
-	RenderAuthorizationPage(ctx context.Context, w http.ResponseWriter, req *http.Request, data *AuthorizationPageData) error
+	RenderAuthorizationPage(w http.ResponseWriter, req *http.Request, data *AuthorizationPageData) error
 
 	// RenderErrorPage should write to the io.Writer the HTML the error page.
-	RenderErrorPage(ctx context.Context, w http.ResponseWriter, req *http.Request, err *ErrorPageData) error
+	RenderErrorPage(w http.ResponseWriter, req *http.Request, err *ErrorPageData) error
 
 	// AuthenticateRequest should take an http.Request and either return
 	// the current logged in user or generate a response that will allow the
 	// user to login, such as a redirect. If the later happens, both User and
 	// error should be nil.
-	AuthenticateRequest(c *Client, ctx context.Context, w http.ResponseWriter, req *http.Request) (*User, error)
+	AuthenticateRequest(c *Client, w http.ResponseWriter, req *http.Request) (*User, error)
 }
