@@ -101,7 +101,7 @@ func redirectTo(w http.ResponseWriter, req *http.Request, baseURL *url.URL, newV
 	}
 
 	// Clone it
-	u, err := url.ParseRequestURI(baseURL.String())
+	u, err := url.Parse(baseURL.String())
 	if err != nil {
 		panic(err)
 	}
@@ -118,7 +118,7 @@ type AuthorizeHTTPHandler struct {
 
 // ServeHTTP implements the http.Handler interface for this struct.
 func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	redirectURI, err := url.ParseRequestURI(req.URL.Query().Get("redirect_uri"))
+	redirectURI, err := url.Parse(req.URL.Query().Get("redirect_uri"))
 	if err != nil {
 		log.Println("redirect_uri is missing or is an invalid URL")
 		w.WriteHeader(ErrInvalidRequest.Code)
