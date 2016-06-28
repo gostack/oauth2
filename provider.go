@@ -183,7 +183,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 		case "POST":
 			if req.PostFormValue("action") == "authorize" {
-				auth, err := NewAuthorization(c, u, scope, c.Confidential, true)
+				auth, err := NewAuthorization(c, u, scope, true, true)
 				if err != nil {
 					log.Println(err)
 					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
@@ -344,7 +344,7 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 		return
 	}
 
-	auth, err := NewAuthorization(c, u, scope, c.Confidential, false)
+	auth, err := NewAuthorization(c, u, scope, true, false)
 	if err != nil {
 		log.Println(err)
 		ew.Encode(ErrServerError)
