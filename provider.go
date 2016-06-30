@@ -407,12 +407,6 @@ func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter
 
 // refreshToken implements the token refresh flow
 func (h TokenHTTPHandler) refreshToken(c *Client, ew *EncoderResponseWriter, req *http.Request) {
-	if !c.Confidential {
-		log.Println("client not confidential")
-		ew.Encode(ErrUnauthorizedClient)
-		return
-	}
-
 	var (
 		refreshToken = req.PostFormValue("refresh_token")
 		scope        = req.PostFormValue("scope")
