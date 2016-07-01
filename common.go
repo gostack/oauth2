@@ -130,6 +130,7 @@ func (a *Authorization) Refresh(scope string) error {
 		}
 	}
 
+	a.CreatedAt = time.Now().UTC()
 	a.Scope = strings.Join(finalScopes, " ")
 
 	if b, err := secureRandomBytes(64); err != nil {
