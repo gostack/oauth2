@@ -131,6 +131,7 @@ func (a *Authorization) Refresh(scope string) error {
 	}
 
 	a.CreatedAt = time.Now().UTC()
+	a.ExpiresIn = int64((24 * time.Hour * 60).Seconds())
 	a.Scope = strings.Join(finalScopes, " ")
 
 	if b, err := secureRandomBytes(64); err != nil {
