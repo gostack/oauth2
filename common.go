@@ -29,37 +29,6 @@ type User struct {
 	Login string
 }
 
-type Client struct {
-	ID, Secret   string
-	Name         string
-	RedirectURI  string
-	Internal     bool
-	Confidential bool
-}
-
-func NewClient(name, redirectURI string, confidential, internal bool) (*Client, error) {
-	c := Client{
-		Name:         name,
-		RedirectURI:  redirectURI,
-		Confidential: confidential,
-		Internal:     internal,
-	}
-
-	if b, err := secureRandomBytes(32); err != nil {
-		return nil, err
-	} else {
-		c.ID = hex.EncodeToString(b)
-	}
-
-	if b, err := secureRandomBytes(64); err != nil {
-		return nil, err
-	} else {
-		c.Secret = hex.EncodeToString(b)
-	}
-
-	return &c, nil
-}
-
 type Scope struct {
 	ID       string
 	Desc     string

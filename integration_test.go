@@ -85,11 +85,11 @@ func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.
 	inMemory := oauth2.NewInMemoryPersistence("valid_password")
 
 	// Setup some data
-	client, err := oauth2.NewClient("Test Client", "http://example.com/callback", true, true)
-	if err != nil {
+	client := oauth2.Client{Name: "Test Client", RedirectURI: "http://example.com/callback", Confidential: true, Internal: true}
+	if err := client.Init(); err != nil {
 		panic(err)
 	}
-	if err := inMemory.SaveClient(client); err != nil {
+	if err := inMemory.SaveClient(&client); err != nil {
 		panic(err)
 	}
 
