@@ -20,7 +20,11 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"net/http"
 )
+
+// AbstractUser is an abstract type representing the current user in the system.
+type AbstractUser interface{}
 
 // Client represents a known client application using this OAuth2 server to authenticate.
 //
@@ -59,6 +63,32 @@ func (c *Client) generateCredentials() error {
 	return nil
 }
 
+// UserAuthorization represents an explicit authorization given by the user to a specific client application.
+//
+// Related RFC topics:
+// https://tools.ietf.org/html/rfc6749#section-4.1
+// https://tools.ietf.org/html/rfc6749#section-4.2
+type UserAuthorization struct {
+	Client       Client
+	Scope        []string
+	RefreshToken []byte
+}
+
+// AccessToken represents an OAuth2 Access Token issued for an application.
+//
+// Related RFC topics:
+// https://tools.ietf.org/html/rfc6749#section-1.1
+// https://tools.ietf.org/html/rfc6749#section-1.4
+type AccessToken struct {
+	Client        Client
+	Authorization UserAuthorization
+
+	Token        string
+	ExpiresIn    int64
+	RefreshToken string
+	Scope        string
+}
+
 // generateToken generates a random sequence of N bytes and returns it encoded as base64
 func generateToken(nBytes int) (string, error) {
 	r := make([]byte, nBytes)
@@ -87,4 +117,14 @@ func secureCompare(a, b []byte) bool {
 	}
 
 	return result == 0
+}
+
+type Authenticator interface {
+	Authenticate(req *http.Request) AbstractUser
+}
+
+type Authorizer interface {
+	LookupAuthorization(u AbstractUser, c Client, s []string) (*UserAuthorization, error)
+	LookupAuthorizationByRefreshToken(t string) (*UserAuthorization, error)
+	StoreAccessToken(at AccessToken) error
 }
