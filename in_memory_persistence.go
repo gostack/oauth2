@@ -16,8 +16,12 @@ limitations under the License.
 
 package oauth2
 
+import (
+	"github.com/gostack/oauth2/core"
+)
+
 type inMemoryAuthKey struct {
-	Client *Client
+	Client *core.Client
 	User   *User
 }
 
@@ -29,7 +33,7 @@ type InMemoryPersistence struct {
 
 	// clients holds the references to the existing clients,
 	// indexed by their client IDs.
-	clients map[string]*Client
+	clients map[string]*core.Client
 
 	// users holds the references to existing users in the system,
 	// indexed by their login
@@ -46,7 +50,7 @@ type InMemoryPersistence struct {
 func NewInMemoryPersistence(validPassword string) *InMemoryPersistence {
 	return &InMemoryPersistence{
 		validPassword:  validPassword,
-		clients:        make(map[string]*Client),
+		clients:        make(map[string]*core.Client),
 		users:          make(map[string]*User),
 		authorizations: make(map[inMemoryAuthKey]*Authorization),
 		scopes:         make(map[string]*Scope),
@@ -96,13 +100,13 @@ func (b *InMemoryPersistence) GetAuthorizationByRefreshToken(refreshToken string
 }
 
 // SaveClient persists the client
-func (b *InMemoryPersistence) SaveClient(c *Client) error {
+func (b *InMemoryPersistence) SaveClient(c *core.Client) error {
 	b.clients[c.ID] = c
 	return nil
 }
 
 // GetClientByID fetches the Client instance using it's client id
-func (b *InMemoryPersistence) GetClientByID(ID string) (*Client, error) {
+func (b *InMemoryPersistence) GetClientByID(ID string) (*core.Client, error) {
 	c, exst := b.clients[ID]
 	if !exst {
 		return nil, ErrNotFound

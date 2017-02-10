@@ -19,6 +19,8 @@ package oauth2
 import (
 	"errors"
 	"net/http"
+
+	"github.com/gostack/oauth2/core"
 )
 
 // ErrNotFound should be returned by any Get* methods defined in PersistenceBackend
@@ -41,8 +43,7 @@ type PersistenceBackend interface {
 	//*
 	// Client persistence
 	//*
-	GetClientByID(ID string) (*Client, error)
-	SaveClient(c *Client) error
+	GetClientByID(ID string) (*core.Client, error)
 
 	//*
 	// Scope persistence
@@ -56,9 +57,9 @@ type PersistenceBackend interface {
 }
 
 type AuthorizationPageData struct {
-	Client *Client
+	Client *core.Client
 	User   *User
-	Scopes []*Scope
+	Scopes []string
 }
 
 type ErrorPageData struct {
@@ -77,5 +78,5 @@ type HTTPBackend interface {
 	// the current logged in user or generate a response that will allow the
 	// user to login, such as a redirect. If the later happens, both User and
 	// error should be nil.
-	AuthenticateRequest(c *Client, w http.ResponseWriter, req *http.Request) (*User, error)
+	AuthenticateRequest(c *core.Client, w http.ResponseWriter, req *http.Request) (*User, error)
 }

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gostack/oauth2/core"
+	"github.com/gostack/oauth2/strategy"
 )
 
 // Provider represents a entire instance of a provider, connected to a specific backend.
@@ -33,11 +36,16 @@ import (
 type Provider struct {
 	persistence PersistenceBackend
 	http        HTTPBackend
+	strategies  *strategy.Set
 }
 
 // Creates a new Provider instance for the given backend
 func NewProvider(p PersistenceBackend, h HTTPBackend) *Provider {
-	prv := Provider{p, h}
+	prv := Provider{
+		persistence: p,
+		http:        h,
+		strategies:  strategy.NewSet(),
+	}
 	return &prv
 }
 
@@ -48,8 +56,16 @@ func NewProvider(p PersistenceBackend, h HTTPBackend) *Provider {
 //  http.Handler("/oauth", p.HTTPHandler())
 func (p Provider) HTTPHandler() http.Handler {
 	routes := map[string]http.Handler{
-		"/authorize": AuthorizeHTTPHandler{p.persistence, p.http},
-		"/token":     TokenHTTPHandler{p.persistence, p.http},
+		"/authorize": AuthorizeHTTPHandler{
+			persistence: p.persistence,
+			http:        p.http,
+			strategies:  p.strategies,
+		},
+		"/token": TokenHTTPHandler{
+			persistence: p.persistence,
+			http:        p.http,
+			strategies:  p.strategies,
+		},
 	}
 
 	mux := http.NewServeMux()
@@ -114,6 +130,7 @@ func redirectTo(w http.ResponseWriter, req *http.Request, baseURL *url.URL, newV
 type AuthorizeHTTPHandler struct {
 	persistence PersistenceBackend
 	http        HTTPBackend
+	strategies  *strategy.Set
 }
 
 // ServeHTTP implements the http.Handler interface for this struct.
@@ -164,47 +181,44 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	scope := req.URL.Query().Get("scope")
-	scopes, err := h.persistence.GetScopesByID(strings.Split(scope, " ")...)
-	if err != nil {
-		redirectTo(w, req, redirectURI, url.Values{"error": []string{"invalid_scope"}, "state": []string{state}})
+	scopes := strings.Split(req.URL.Query().Get("scope"), " ")
+	responseType := req.URL.Query().Get("response_type")
+
+	strat := h.strategies.ResponseType(responseType)
+	if strat == nil {
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"unsupported_response_type"}, "state": []string{state}})
 		return
 	}
 
-	switch req.URL.Query().Get("response_type") {
-	case "code":
-		switch req.Method {
-		case "GET":
-			h.http.RenderAuthorizationPage(w, req, &AuthorizationPageData{
-				Client: c,
-				User:   u,
-				Scopes: scopes,
-			})
+	switch req.Method {
+	case "GET":
+		h.http.RenderAuthorizationPage(w, req, &AuthorizationPageData{
+			Client: c,
+			User:   u,
+			Scopes: scopes,
+		})
 
-		case "POST":
-			if req.PostFormValue("action") == "authorize" {
-				auth, err := NewAuthorization(c, u, scope, true, true)
-				if err != nil {
-					log.Println(err)
-					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
-					return
-				}
-
-				if err := h.persistence.SaveAuthorization(auth); err != nil {
-					log.Println(err)
-					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
-					return
-				}
-
-				redirectTo(w, req, redirectURI, url.Values{"code": []string{auth.Code}, "state": []string{state}})
-				return
-			}
-
+	case "POST":
+		if req.PostFormValue("action") != "authorize" {
 			redirectTo(w, req, redirectURI, url.Values{"error": []string{"access_denied"}, "state": []string{state}})
+			return
 		}
 
-	default:
-		redirectTo(w, req, redirectURI, url.Values{"error": []string{"unsupported_response_type"}, "state": []string{state}})
+		a, err := strat.Authorize(&strategy.AuthorizationRequest{
+			Client: c,
+			Scope:  scopes,
+		})
+
+		if err != nil {
+			// TODO(divoxx): Proper errors with code, move errors.go to errors package
+			h.http.RenderErrorPage(w, req, &ErrorPageData{err.(Error)})
+			return
+		}
+
+		redirectTo(w, req, redirectURI, url.Values{
+			responseType: []string{a.ID},
+			"state":      []string{state},
+		})
 	}
 }
 
@@ -212,6 +226,7 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 type TokenHTTPHandler struct {
 	persistence PersistenceBackend
 	http        HTTPBackend
+	strategies  *strategy.Set
 }
 
 // ServeHTTP implements the http.Handler interface for this struct.
@@ -276,7 +291,7 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // authorizationCode implements that Authorization Code grant type.
-func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+func (h TokenHTTPHandler) authorizationCode(c *core.Client, ew *EncoderResponseWriter, req *http.Request) {
 	var (
 		code        = req.PostFormValue("code")
 		redirectURI = req.PostFormValue("redirect_uri")
@@ -318,7 +333,7 @@ func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter
 }
 
 // resourceOwnerCredentials implements that Resource Owner Credentials grant type.
-func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+func (h TokenHTTPHandler) resourceOwnerCredentials(c *core.Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !c.Internal {
 		log.Println("client not internal")
 		ew.Encode(ErrUnauthorizedClient)
@@ -361,7 +376,7 @@ func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderRespons
 }
 
 // clientCredentials implements the Client Credentials grant type.
-func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+func (h TokenHTTPHandler) clientCredentials(c *core.Client, ew *EncoderResponseWriter, req *http.Request) {
 	if !(c.Confidential && c.Internal) {
 		log.Println("client is not confidential and internal")
 		ew.Encode(ErrUnauthorizedClient)
@@ -406,7 +421,7 @@ func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter
 }
 
 // refreshToken implements the token refresh flow
-func (h TokenHTTPHandler) refreshToken(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+func (h TokenHTTPHandler) refreshToken(c *core.Client, ew *EncoderResponseWriter, req *http.Request) {
 	var (
 		refreshToken = req.PostFormValue("refresh_token")
 		scope        = req.PostFormValue("scope")

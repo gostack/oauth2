@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/gostack/oauth2"
+	"github.com/gostack/oauth2/core"
 )
 
 func init() {
@@ -69,7 +70,7 @@ type testHTTPBackend struct {
 	AutoLogin *oauth2.User
 }
 
-func (b *testHTTPBackend) AuthenticateRequest(c *oauth2.Client, w http.ResponseWriter, req *http.Request) (*oauth2.User, error) {
+func (b *testHTTPBackend) AuthenticateRequest(c *core.Client, w http.ResponseWriter, req *http.Request) (*oauth2.User, error) {
 	return b.AutoLogin, nil
 }
 
@@ -85,7 +86,7 @@ func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.
 	inMemory := oauth2.NewInMemoryPersistence("valid_password")
 
 	// Setup some data
-	client, err := oauth2.NewClient("Test Client", "http://example.com/callback", true, true)
+	client, err := core.NewClient("Test Client", "http://example.com/callback", true, true)
 	if err != nil {
 		panic(err)
 	}

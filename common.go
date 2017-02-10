@@ -23,41 +23,12 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"github.com/gostack/oauth2/core"
 )
 
 type User struct {
 	Login string
-}
-
-type Client struct {
-	ID, Secret   string
-	Name         string
-	RedirectURI  string
-	Internal     bool
-	Confidential bool
-}
-
-func NewClient(name, redirectURI string, confidential, internal bool) (*Client, error) {
-	c := Client{
-		Name:         name,
-		RedirectURI:  redirectURI,
-		Confidential: confidential,
-		Internal:     internal,
-	}
-
-	if b, err := secureRandomBytes(32); err != nil {
-		return nil, err
-	} else {
-		c.ID = hex.EncodeToString(b)
-	}
-
-	if b, err := secureRandomBytes(64); err != nil {
-		return nil, err
-	} else {
-		c.Secret = hex.EncodeToString(b)
-	}
-
-	return &c, nil
 }
 
 type Scope struct {
@@ -67,8 +38,8 @@ type Scope struct {
 }
 
 type Authorization struct {
-	Client *Client `json:"-"`
-	User   *User   `json:"-"`
+	Client *core.Client `json:"-"`
+	User   *User        `json:"-"`
 
 	Code         string    `json:"-"`
 	CreatedAt    time.Time `json:"-"`
@@ -79,7 +50,7 @@ type Authorization struct {
 	Scope        string    `json:"scope"`
 }
 
-func NewAuthorization(c *Client, u *User, scope string, refresh bool, code bool) (*Authorization, error) {
+func NewAuthorization(c *core.Client, u *User, scope string, refresh bool, code bool) (*Authorization, error) {
 	a := Authorization{
 		Client:    c,
 		User:      u,
