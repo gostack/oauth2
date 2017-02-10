@@ -24,7 +24,9 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/gostack/jwt"
 	"github.com/gostack/oauth2"
 )
 
@@ -227,6 +229,41 @@ func TestPasswordGrantType(t *testing.T) {
 	defer srv.Close()
 
 	a, err := clt.ResourceOwnerCredentials("username", "validpassword", "basic_profile email")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a2, err := p.GetAuthorizationByAccessToken(a.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if a2.Client.ID != clt.ID || a2.User.Login != "username" {
+		t.Errorf("Authorization does not match client or user")
+	}
+
+	if a2.Scope != "basic_profile email" {
+		t.Errorf("Authorization scope does not match what was requested")
+	}
+}
+
+func TestAssertionGrantType(t *testing.T) {
+	p, clt, srv := setupProvider()
+	defer srv.Close()
+
+	tk := jwt.NewToken()
+	tk.JWTID = "id"
+	tk.Issuer = "http://client.jwt.test"
+	tk.Subject = "user@jwt.test"
+	tk.Audience = "http://authz.jwt.test"
+	tk.Expires = time.Now().Add(time.Minute * 1)
+
+	signedTk, err := tk.Sign(clt.Secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := clt.Assertion(oauth2.AssertionJWT, signedTk, "basic_profile email")
 	if err != nil {
 		t.Fatal(err)
 	}

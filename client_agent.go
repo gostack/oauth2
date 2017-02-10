@@ -93,6 +93,19 @@ func (c ClientAgent) RefreshToken(refreshToken, scope string) (*Authorization, e
 	})
 }
 
+// Assertion implements the assertion grant type as defined by https://tools.ietf.org/html/rfc7521
+func (c ClientAgent) Assertion(profile, assertion, scope string) (*Authorization, error) {
+	return c.doTokenRequest(url.Values{
+		"grant_type": []string{profile},
+		"assertion":  []string{assertion},
+		"scope":      []string{scope},
+	})
+}
+
+var (
+	AssertionJWT = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+)
+
 // doTokenRequest performs a request against token endpoint and returns a Authorization.
 func (c ClientAgent) doTokenRequest(params url.Values) (*Authorization, error) {
 	body := []byte(params.Encode())
