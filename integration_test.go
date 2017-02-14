@@ -95,7 +95,7 @@ func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.
 		panic(err)
 	}
 
-	user := oauth2.User{Login: "username"}
+	user := oauth2.User{Username: "username"}
 	if err := inMemory.SaveUser(&user); err != nil {
 		panic(err)
 	}
@@ -168,7 +168,7 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if persistedAuth.Client.ID != clt.ID || persistedAuth.User.Login != "username" {
+	if persistedAuth.Client.ID != clt.ID || persistedAuth.User.Username != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
 
@@ -192,7 +192,7 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if refreshedPersistedAuth.Client.ID != clt.ID || refreshedPersistedAuth.User.Login != "username" {
+	if refreshedPersistedAuth.Client.ID != clt.ID || refreshedPersistedAuth.User.Username != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
 
@@ -247,7 +247,7 @@ func TestPasswordGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if a2.Client.ID != clt.ID || a2.User.Login != "username" {
+	if a2.Client.ID != clt.ID || a2.User.Username != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
 
@@ -282,7 +282,7 @@ func TestAssertionGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if a2.Client.ID != clt.ID || a2.User.Login != "username" {
+	if a2.Client.ID != clt.ID || a2.User.Username != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
 

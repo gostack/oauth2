@@ -133,9 +133,9 @@ func (b *InMemoryPersistence) SaveScope(s *Scope) error {
 	return nil
 }
 
-// GetUserByLogin lookup the user that matches the login
-func (b *InMemoryPersistence) GetUserByLogin(login string) (*User, error) {
-	u, exst := b.users[login]
+// GetUserByUsername lookup the user that matches the login
+func (b *InMemoryPersistence) GetUserByUsername(username string) (*User, error) {
+	u, exst := b.users[username]
 	if !exst {
 		return nil, ErrNotFound
 	}
@@ -155,6 +155,6 @@ func (b *InMemoryPersistence) GetUserByCredentials(username, password string) (*
 // SaveUser persists the user in the backend, it's not part of the Backend interface
 // but we need a way to add users to the Backend.
 func (b *InMemoryPersistence) SaveUser(u *User) error {
-	b.users[u.Login] = u
+	b.users[u.Username] = u
 	return nil
 }

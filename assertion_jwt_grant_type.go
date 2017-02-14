@@ -68,7 +68,7 @@ func (gt AssertionJWTGrantType) TokenHandler(c *Client, ew *EncoderResponseWrite
 		return
 	}
 
-	u, err := gt.persistence.GetUserByLogin(jwtTk.Subject)
+	u, err := gt.persistence.GetUserByUsername(jwtTk.Subject)
 	if err != nil {
 		log.Println("JWT subject is not a valid user")
 		ew.Encode(ErrInvalidGrant)

@@ -57,9 +57,14 @@ func (gt ResourceOwnerCredentialsGrantType) TokenHandler(c *Client, ew *EncoderR
 		return
 	}
 
-	u, err := gt.persistence.GetUserByCredentials(username, password)
+	u, err := gt.persistence.GetUserByUsername(username)
 	if err != nil {
 		log.Println("invalid credentials")
+		ew.Encode(ErrAccessDenied)
+		return
+	}
+	if !secureCompare([]byte(username), []byte(u.Username)) {
+		log.Println("invalid password")
 		ew.Encode(ErrAccessDenied)
 		return
 	}
