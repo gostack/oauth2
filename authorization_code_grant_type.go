@@ -19,6 +19,7 @@ package oauth2
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -32,6 +33,21 @@ func (gt AuthorizationCodeGrantType) RegistrationInfo() (string, string) {
 
 func (gt *AuthorizationCodeGrantType) SetPersistenceBackend(p PersistenceBackend) {
 	gt.persistence = p
+}
+
+func (gt AuthorizationCodeGrantType) AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error) {
+	auth, err := NewAuthorization(c, u, scope, true, true)
+	if err != nil {
+		log.Println(err)
+		return nil, ErrServerError
+	}
+
+	if err := gt.persistence.SaveAuthorization(auth); err != nil {
+		log.Println(err)
+		return nil, ErrServerError
+	}
+
+	return url.Values{"code": []string{auth.Code}}, nil
 }
 
 func (gt AuthorizationCodeGrantType) TokenHandler(c *Client, ew *EncoderResponseWriter, req *http.Request) {

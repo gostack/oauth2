@@ -19,6 +19,7 @@ package oauth2
 import (
 	"log"
 	"net/http"
+	"net/url"
 )
 
 type RefreshTokenGrantType struct {
@@ -31,6 +32,10 @@ func (gt RefreshTokenGrantType) RegistrationInfo() (string, string) {
 
 func (gt *RefreshTokenGrantType) SetPersistenceBackend(p PersistenceBackend) {
 	gt.persistence = p
+}
+
+func (gt RefreshTokenGrantType) AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error) {
+	return nil, nil
 }
 
 func (gt RefreshTokenGrantType) TokenHandler(c *Client, ew *EncoderResponseWriter, req *http.Request) {

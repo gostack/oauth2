@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,6 +27,7 @@ import (
 type GrantType interface {
 	RegistrationInfo() (string, string)
 	SetPersistenceBackend(PersistenceBackend)
+	AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error)
 	TokenHandler(c *Client, ew *EncoderResponseWriter, req *http.Request)
 }
 
@@ -39,6 +40,7 @@ type Provider struct {
 	persistence PersistenceBackend
 	http        HTTPBackend
 
+	authzGrantTypes map[string]GrantType
 	tokenGrantTypes map[string]GrantType
 }
 
@@ -47,6 +49,7 @@ func NewProvider(p PersistenceBackend, h HTTPBackend) *Provider {
 	prv := Provider{
 		persistence:     p,
 		http:            h,
+		authzGrantTypes: make(map[string]GrantType),
 		tokenGrantTypes: make(map[string]GrantType),
 	}
 	return &prv
@@ -55,8 +58,16 @@ func NewProvider(p PersistenceBackend, h HTTPBackend) *Provider {
 // Register inserts a new strategy into the provider
 func (p *Provider) Register(gt GrantType) {
 	gt.SetPersistenceBackend(p.persistence)
-	_, tokenName := gt.RegistrationInfo()
-	p.tokenGrantTypes[tokenName] = gt
+
+	authzResponseType, tokenGrantType := gt.RegistrationInfo()
+
+	if authzResponseType != "" {
+		p.authzGrantTypes[authzResponseType] = gt
+	}
+
+	if tokenGrantType != "" {
+		p.tokenGrantTypes[tokenGrantType] = gt
+	}
 }
 
 // HTTPHandler builds and return an http.Handler that can be mounted into any net/http
@@ -66,7 +77,7 @@ func (p *Provider) Register(gt GrantType) {
 //  http.Handler("/oauth", p.HTTPHandler())
 func (p Provider) HTTPHandler() http.Handler {
 	routes := map[string]http.Handler{
-		"/authorize": AuthorizeHTTPHandler{p.persistence, p.http},
+		"/authorize": AuthorizeHTTPHandler{p.persistence, p.http, p.authzGrantTypes},
 		"/token":     TokenHTTPHandler{p.persistence, p.http, p.tokenGrantTypes},
 	}
 
@@ -132,6 +143,7 @@ func redirectTo(w http.ResponseWriter, req *http.Request, baseURL *url.URL, newV
 type AuthorizeHTTPHandler struct {
 	persistence PersistenceBackend
 	http        HTTPBackend
+	grantTypes  map[string]GrantType
 }
 
 // ServeHTTP implements the http.Handler interface for this struct.
@@ -189,40 +201,40 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	switch req.URL.Query().Get("response_type") {
-	case "code":
-		switch req.Method {
-		case "GET":
-			h.http.RenderAuthorizationPage(w, req, &AuthorizationPageData{
-				Client: c,
-				User:   u,
-				Scopes: scopes,
-			})
+	rtValue := req.URL.Query().Get("response_type")
+	if rtValue == "" {
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"invalid_request"}, "state": []string{state}})
+		return
+	}
 
-		case "POST":
-			if req.PostFormValue("action") == "authorize" {
-				auth, err := NewAuthorization(c, u, scope, true, true)
-				if err != nil {
-					log.Println(err)
-					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
-					return
+	rt, supported := h.grantTypes[rtValue]
+	if !supported {
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"unsupported_response_type"}, "state": []string{state}})
+		return
+	}
+
+	switch req.Method {
+	case "GET":
+		h.http.RenderAuthorizationPage(w, req, &AuthorizationPageData{
+			Client: c,
+			User:   u,
+			Scopes: scopes,
+		})
+
+	case "POST":
+		if req.PostFormValue("action") == "authorize" {
+			urlValues, err := rt.AuthzHandler(c, u, scope, req)
+			if err != nil {
+				if err, ok := err.(Error); ok {
+					redirectTo(w, req, redirectURI, url.Values{"error": []string{err.ID}, "state": []string{state}})
 				}
-
-				if err := h.persistence.SaveAuthorization(auth); err != nil {
-					log.Println(err)
-					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
-					return
-				}
-
-				redirectTo(w, req, redirectURI, url.Values{"code": []string{auth.Code}, "state": []string{state}})
-				return
 			}
 
+			urlValues.Set("state", state)
+			redirectTo(w, req, redirectURI, urlValues)
+		} else {
 			redirectTo(w, req, redirectURI, url.Values{"error": []string{"access_denied"}, "state": []string{state}})
 		}
-
-	default:
-		redirectTo(w, req, redirectURI, url.Values{"error": []string{"unsupported_response_type"}, "state": []string{state}})
 	}
 }
 

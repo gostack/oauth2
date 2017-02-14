@@ -17,9 +17,11 @@ limitations under the License.
 package oauth2
 
 import (
-	"github.com/gostack/jwt"
 	"log"
 	"net/http"
+	"net/url"
+
+	"github.com/gostack/jwt"
 )
 
 type AssertionJWTGrantType struct {
@@ -34,6 +36,10 @@ func (gt AssertionJWTGrantType) RegistrationInfo() (string, string) {
 
 func (gt *AssertionJWTGrantType) SetPersistenceBackend(p PersistenceBackend) {
 	gt.persistence = p
+}
+
+func (gt AssertionJWTGrantType) AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error) {
+	return nil, nil
 }
 
 func (gt AssertionJWTGrantType) TokenHandler(c *Client, ew *EncoderResponseWriter, req *http.Request) {

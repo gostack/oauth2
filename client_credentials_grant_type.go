@@ -19,6 +19,7 @@ package oauth2
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -32,6 +33,10 @@ func (gt ClientCredentialsGrantType) RegistrationInfo() (string, string) {
 
 func (gt *ClientCredentialsGrantType) SetPersistenceBackend(p PersistenceBackend) {
 	gt.persistence = p
+}
+
+func (gt ClientCredentialsGrantType) AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error) {
+	return nil, nil
 }
 
 func (gt ClientCredentialsGrantType) TokenHandler(c *Client, ew *EncoderResponseWriter, req *http.Request) {
