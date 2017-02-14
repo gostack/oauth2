@@ -133,6 +133,15 @@ func (b *InMemoryPersistence) SaveScope(s *Scope) error {
 	return nil
 }
 
+// GetUserByLogin lookup the user that matches the login
+func (b *InMemoryPersistence) GetUserByLogin(login string) (*User, error) {
+	u, exst := b.users[login]
+	if !exst {
+		return nil, ErrNotFound
+	}
+	return u, nil
+}
+
 // GetUserByCredentials lookup the user that matches the username and password
 func (b *InMemoryPersistence) GetUserByCredentials(username, password string) (*User, error) {
 	u, exst := b.users[username]

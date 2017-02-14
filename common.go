@@ -26,7 +26,8 @@ import (
 )
 
 type User struct {
-	Login string
+	Login    string
+	Password string
 }
 
 type Client struct {

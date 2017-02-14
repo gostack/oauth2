@@ -52,6 +52,7 @@ type PersistenceBackend interface {
 	//*
 	// User persistence
 	//*
+	GetUserByLogin(login string) (*User, error)
 	GetUserByCredentials(username, password string) (*User, error)
 }
 

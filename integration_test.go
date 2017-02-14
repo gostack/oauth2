@@ -112,6 +112,15 @@ func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.
 	}
 
 	provider := oauth2.NewProvider(inMemory, &testHTTPBackend{&user})
+	provider.Register(&oauth2.AuthorizationCodeGrantType{})
+	provider.Register(&oauth2.ResourceOwnerCredentialsGrantType{})
+	provider.Register(&oauth2.ClientCredentialsGrantType{})
+	provider.Register(&oauth2.RefreshTokenGrantType{})
+	provider.Register(&oauth2.AssertionJWTGrantType{
+		Audience:  "http://authz.jwt.test",
+		Algorithm: jwt.HS256,
+	})
+
 	srv := httptest.NewServer(provider.HTTPHandler())
 
 	clientAgent := oauth2.ClientAgent{
@@ -254,7 +263,7 @@ func TestAssertionGrantType(t *testing.T) {
 	tk := jwt.NewToken()
 	tk.JWTID = "id"
 	tk.Issuer = "http://client.jwt.test"
-	tk.Subject = "user@jwt.test"
+	tk.Subject = "username"
 	tk.Audience = "http://authz.jwt.test"
 	tk.Expires = time.Now().Add(time.Minute * 1)
 
