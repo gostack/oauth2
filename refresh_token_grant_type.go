@@ -34,7 +34,7 @@ func (gt *RefreshTokenGrantType) SetPersistenceBackend(p PersistenceBackend) {
 	gt.persistence = p
 }
 
-func (gt RefreshTokenGrantType) AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error) {
+func (gt RefreshTokenGrantType) AuthzHandler(c *Client, u User, scope string, req *http.Request) (url.Values, error) {
 	return nil, nil
 }
 

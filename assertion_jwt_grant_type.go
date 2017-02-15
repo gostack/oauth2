@@ -38,7 +38,7 @@ func (gt *AssertionJWTGrantType) SetPersistenceBackend(p PersistenceBackend) {
 	gt.persistence = p
 }
 
-func (gt AssertionJWTGrantType) AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error) {
+func (gt AssertionJWTGrantType) AuthzHandler(c *Client, u User, scope string, req *http.Request) (url.Values, error) {
 	return nil, nil
 }
 

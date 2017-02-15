@@ -35,7 +35,7 @@ func (gt *AuthorizationCodeGrantType) SetPersistenceBackend(p PersistenceBackend
 	gt.persistence = p
 }
 
-func (gt AuthorizationCodeGrantType) AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error) {
+func (gt AuthorizationCodeGrantType) AuthzHandler(c *Client, u User, scope string, req *http.Request) (url.Values, error) {
 	auth, err := NewAuthorization(c, u, scope, true, true)
 	if err != nil {
 		log.Println(err)

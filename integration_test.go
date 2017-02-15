@@ -67,11 +67,24 @@ var (
 `))
 )
 
-type testHTTPBackend struct {
-	AutoLogin *oauth2.User
+type User struct {
+	Username string
+	Password string
 }
 
-func (b *testHTTPBackend) AuthenticateRequest(c *oauth2.Client, w http.ResponseWriter, req *http.Request) (*oauth2.User, error) {
+func (u User) GetUsername() string {
+	return u.Username
+}
+
+func (u User) CheckPassword(password string) bool {
+	return u.Password == password
+}
+
+type testHTTPBackend struct {
+	AutoLogin *User
+}
+
+func (b *testHTTPBackend) AuthenticateRequest(c *oauth2.Client, w http.ResponseWriter, req *http.Request) (oauth2.User, error) {
 	return b.AutoLogin, nil
 }
 
@@ -95,7 +108,7 @@ func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.
 		panic(err)
 	}
 
-	user := oauth2.User{Username: "username"}
+	user := User{Username: "username", Password: "validpassword"}
 	if err := inMemory.SaveUser(&user); err != nil {
 		panic(err)
 	}
@@ -168,7 +181,7 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if persistedAuth.Client.ID != clt.ID || persistedAuth.User.Username != "username" {
+	if persistedAuth.Client.ID != clt.ID || persistedAuth.User.GetUsername() != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
 
@@ -192,7 +205,7 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if refreshedPersistedAuth.Client.ID != clt.ID || refreshedPersistedAuth.User.Username != "username" {
+	if refreshedPersistedAuth.Client.ID != clt.ID || refreshedPersistedAuth.User.GetUsername() != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
 
@@ -247,7 +260,7 @@ func TestPasswordGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if a2.Client.ID != clt.ID || a2.User.Username != "username" {
+	if a2.Client.ID != clt.ID || a2.User.GetUsername() != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
 
@@ -282,7 +295,7 @@ func TestAssertionGrantType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if a2.Client.ID != clt.ID || a2.User.Username != "username" {
+	if a2.Client.ID != clt.ID || a2.User.GetUsername() != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
 

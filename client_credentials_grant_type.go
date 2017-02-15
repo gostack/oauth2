@@ -35,7 +35,7 @@ func (gt *ClientCredentialsGrantType) SetPersistenceBackend(p PersistenceBackend
 	gt.persistence = p
 }
 
-func (gt ClientCredentialsGrantType) AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error) {
+func (gt ClientCredentialsGrantType) AuthzHandler(c *Client, u User, scope string, req *http.Request) (url.Values, error) {
 	return nil, nil
 }
 

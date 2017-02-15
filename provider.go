@@ -27,7 +27,7 @@ import (
 type GrantType interface {
 	RegistrationInfo() (string, string)
 	SetPersistenceBackend(PersistenceBackend)
-	AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error)
+	AuthzHandler(c *Client, u User, scope string, req *http.Request) (url.Values, error)
 	TokenHandler(c *Client, ew *EncoderResponseWriter, req *http.Request)
 }
 

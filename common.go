@@ -25,9 +25,9 @@ import (
 	"time"
 )
 
-type User struct {
-	Username string
-	Password string
+type User interface {
+	GetUsername() string
+	CheckPassword(password string) bool
 }
 
 type Client struct {
@@ -69,7 +69,7 @@ type Scope struct {
 
 type Authorization struct {
 	Client *Client `json:"-"`
-	User   *User   `json:"-"`
+	User   User    `json:"-"`
 
 	Code         string    `json:"-"`
 	CreatedAt    time.Time `json:"-"`
@@ -80,7 +80,7 @@ type Authorization struct {
 	Scope        string    `json:"scope"`
 }
 
-func NewAuthorization(c *Client, u *User, scope string, refresh bool, code bool) (*Authorization, error) {
+func NewAuthorization(c *Client, u User, scope string, refresh bool, code bool) (*Authorization, error) {
 	a := Authorization{
 		Client:    c,
 		User:      u,

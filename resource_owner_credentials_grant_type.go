@@ -34,7 +34,7 @@ func (gt *ResourceOwnerCredentialsGrantType) SetPersistenceBackend(p Persistence
 	gt.persistence = p
 }
 
-func (gt ResourceOwnerCredentialsGrantType) AuthzHandler(c *Client, u *User, scope string, req *http.Request) (url.Values, error) {
+func (gt ResourceOwnerCredentialsGrantType) AuthzHandler(c *Client, u User, scope string, req *http.Request) (url.Values, error) {
 	return nil, nil
 }
 
@@ -63,7 +63,7 @@ func (gt ResourceOwnerCredentialsGrantType) TokenHandler(c *Client, ew *EncoderR
 		ew.Encode(ErrAccessDenied)
 		return
 	}
-	if !secureCompare([]byte(username), []byte(u.Username)) {
+	if !u.CheckPassword(password) {
 		log.Println("invalid password")
 		ew.Encode(ErrAccessDenied)
 		return
