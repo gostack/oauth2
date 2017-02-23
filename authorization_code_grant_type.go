@@ -25,6 +25,7 @@ import (
 
 type AuthorizationCodeGrantType struct {
 	persistence PersistenceBackend
+	ExpiresIn   time.Duration
 }
 
 func (gt AuthorizationCodeGrantType) RegistrationInfo() (string, string) {
@@ -36,7 +37,7 @@ func (gt *AuthorizationCodeGrantType) SetPersistenceBackend(p PersistenceBackend
 }
 
 func (gt AuthorizationCodeGrantType) AuthzHandler(c *Client, u User, scope string, req *http.Request) (url.Values, error) {
-	auth, err := NewAuthorization(c, u, scope, true, true)
+	auth, err := NewAuthorization(c, u, scope, gt.ExpiresIn, true, true)
 	if err != nil {
 		log.Println(err)
 		return nil, ErrServerError

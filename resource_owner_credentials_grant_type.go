@@ -20,10 +20,12 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type ResourceOwnerCredentialsGrantType struct {
 	persistence PersistenceBackend
+	ExpiresIn   time.Duration
 }
 
 func (gt ResourceOwnerCredentialsGrantType) RegistrationInfo() (string, string) {
@@ -69,7 +71,7 @@ func (gt ResourceOwnerCredentialsGrantType) TokenHandler(c *Client, ew *EncoderR
 		return
 	}
 
-	auth, err := NewAuthorization(c, u, scope, true, false)
+	auth, err := NewAuthorization(c, u, scope, gt.ExpiresIn, true, false)
 	if err != nil {
 		log.Println(err)
 		ew.Encode(ErrServerError)

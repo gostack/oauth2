@@ -20,10 +20,12 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type RefreshTokenGrantType struct {
 	persistence PersistenceBackend
+	ExpiresIn   time.Duration
 }
 
 func (gt RefreshTokenGrantType) RegistrationInfo() (string, string) {
@@ -57,7 +59,7 @@ func (gt RefreshTokenGrantType) TokenHandler(c *Client, ew *EncoderResponseWrite
 		return
 	}
 
-	if err := auth.Refresh(scope); err != nil {
+	if err := auth.Refresh(scope, gt.ExpiresIn); err != nil {
 		log.Println("failed to refresh token")
 		ew.Encode(ErrServerError)
 		return

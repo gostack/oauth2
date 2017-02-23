@@ -2,8 +2,7 @@
 Copyright 2015 Rodrigo Rafael Monti Kochenburger
 
 Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+you may not use this file except in compliance with the License.  You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 
@@ -67,6 +66,8 @@ var (
 `))
 )
 
+var tokenExpiresIn = time.Duration(30)
+
 type User struct {
 	Username string
 	Password string
@@ -125,13 +126,22 @@ func setupProvider() (oauth2.PersistenceBackend, *oauth2.ClientAgent, *httptest.
 	}
 
 	provider := oauth2.NewProvider(inMemory, &testHTTPBackend{&user})
-	provider.Register(&oauth2.AuthorizationCodeGrantType{})
-	provider.Register(&oauth2.ResourceOwnerCredentialsGrantType{})
-	provider.Register(&oauth2.ClientCredentialsGrantType{})
-	provider.Register(&oauth2.RefreshTokenGrantType{})
+	provider.Register(&oauth2.AuthorizationCodeGrantType{
+		ExpiresIn: tokenExpiresIn,
+	})
+	provider.Register(&oauth2.ResourceOwnerCredentialsGrantType{
+		ExpiresIn: tokenExpiresIn,
+	})
+	provider.Register(&oauth2.ClientCredentialsGrantType{
+		ExpiresIn: tokenExpiresIn,
+	})
+	provider.Register(&oauth2.RefreshTokenGrantType{
+		ExpiresIn: tokenExpiresIn,
+	})
 	provider.Register(&oauth2.AssertionJWTGrantType{
 		Audience:  "http://authz.jwt.test",
 		Algorithm: jwt.HS256,
+		ExpiresIn: tokenExpiresIn,
 	})
 
 	srv := httptest.NewServer(provider.HTTPHandler())
@@ -187,6 +197,9 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 
 	if persistedAuth.Scope != "basic_profile email" {
 		t.Errorf("Authorization scope does not match what was requested")
+	}
+	if persistedAuth.ExpiresIn != tokenExpiresIn {
+		t.Errorf("Authorization expiration time does not match what was configured")
 	}
 
 	_, err = clt.AuthorizationCode(code, "http://example.com/callback")
@@ -298,9 +311,11 @@ func TestAssertionGrantType(t *testing.T) {
 	if a2.Client.ID != clt.ID || a2.User.GetUsername() != "username" {
 		t.Errorf("Authorization does not match client or user")
 	}
-
 	if a2.Scope != "basic_profile email" {
 		t.Errorf("Authorization scope does not match what was requested")
+	}
+	if a2.ExpiresIn != tokenExpiresIn {
+		t.Errorf("Authorization expiration time does not match what was configured")
 	}
 }
 
@@ -321,12 +336,13 @@ func TestClientCredentials(t *testing.T) {
 	if a2.Client.ID != clt.ID {
 		t.Errorf("Authorization does not match client")
 	}
-
 	if a2.User != nil {
 		t.Errorf("Client credentials access token should not have an user associated to it")
 	}
-
 	if a2.Scope != "search" {
 		t.Errorf("Authorization scope does not match what was requested")
+	}
+	if a2.ExpiresIn != tokenExpiresIn {
+		t.Errorf("Authorization expiration time does not match what was configured")
 	}
 }

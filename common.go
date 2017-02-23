@@ -71,21 +71,21 @@ type Authorization struct {
 	Client *Client `json:"-"`
 	User   User    `json:"-"`
 
-	Code         string    `json:"-"`
-	CreatedAt    time.Time `json:"-"`
-	AccessToken  string    `json:"access_token"`
-	TokenType    string    `json:"token_type"`
-	ExpiresIn    int64     `json:"expires_in"`
-	RefreshToken string    `json:"refresh_token,omitempty"`
-	Scope        string    `json:"scope"`
+	Code         string        `json:"-"`
+	CreatedAt    time.Time     `json:"-"`
+	AccessToken  string        `json:"access_token"`
+	TokenType    string        `json:"token_type"`
+	ExpiresIn    time.Duration `json:"expires_in"`
+	RefreshToken string        `json:"refresh_token,omitempty"`
+	Scope        string        `json:"scope"`
 }
 
-func NewAuthorization(c *Client, u User, scope string, refresh bool, code bool) (*Authorization, error) {
+func NewAuthorization(c *Client, u User, scope string, expiresIn time.Duration, refresh bool, code bool) (*Authorization, error) {
 	a := Authorization{
 		Client:    c,
 		User:      u,
 		CreatedAt: time.Now().UTC(),
-		ExpiresIn: int64((24 * time.Hour * 60).Seconds()),
+		ExpiresIn: expiresIn,
 		Scope:     scope,
 	}
 
@@ -114,7 +114,7 @@ func NewAuthorization(c *Client, u User, scope string, refresh bool, code bool) 
 	return &a, nil
 }
 
-func (a *Authorization) Refresh(scope string) error {
+func (a *Authorization) Refresh(scope string, expiresIn time.Duration) error {
 	if a.RefreshToken == "" {
 		return errors.New("can't refresh a token that has no refresh token")
 	}
@@ -132,7 +132,7 @@ func (a *Authorization) Refresh(scope string) error {
 	}
 
 	a.CreatedAt = time.Now().UTC()
-	a.ExpiresIn = int64((24 * time.Hour * 60).Seconds())
+	a.ExpiresIn = expiresIn
 	a.Scope = strings.Join(finalScopes, " ")
 
 	if b, err := secureRandomBytes(64); err != nil {

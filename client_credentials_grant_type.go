@@ -21,10 +21,12 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type ClientCredentialsGrantType struct {
 	persistence PersistenceBackend
+	ExpiresIn   time.Duration
 }
 
 func (gt ClientCredentialsGrantType) RegistrationInfo() (string, string) {
@@ -67,7 +69,7 @@ func (gt ClientCredentialsGrantType) TokenHandler(c *Client, ew *EncoderResponse
 		}
 	}
 
-	auth, err := NewAuthorization(c, nil, scope, false, false)
+	auth, err := NewAuthorization(c, nil, scope, gt.ExpiresIn, false, false)
 	if err != nil {
 		log.Println(err)
 		ew.Encode(ErrServerError)

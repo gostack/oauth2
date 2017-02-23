@@ -20,14 +20,16 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gostack/jwt"
 )
 
 type AssertionJWTGrantType struct {
+	persistence PersistenceBackend
 	Audience    string
 	Algorithm   jwt.Algorithm
-	persistence PersistenceBackend
+	ExpiresIn   time.Duration
 }
 
 func (gt AssertionJWTGrantType) RegistrationInfo() (string, string) {
@@ -75,7 +77,7 @@ func (gt AssertionJWTGrantType) TokenHandler(c *Client, ew *EncoderResponseWrite
 		return
 	}
 
-	auth, err := NewAuthorization(c, u, scope, false, false)
+	auth, err := NewAuthorization(c, u, scope, gt.ExpiresIn, false, false)
 	if err != nil {
 		log.Println(err)
 		ew.Encode(ErrServerError)
