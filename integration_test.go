@@ -198,7 +198,7 @@ func TestAuthorizationCodeGrantType(t *testing.T) {
 	if persistedAuth.Scope != "basic_profile email" {
 		t.Errorf("Authorization scope does not match what was requested")
 	}
-	if persistedAuth.ExpiresIn != tokenExpiresIn {
+	if persistedAuth.ExpiresIn != int64(tokenExpiresIn.Seconds()) {
 		t.Errorf("Authorization expiration time does not match what was configured")
 	}
 
@@ -314,7 +314,7 @@ func TestAssertionGrantType(t *testing.T) {
 	if a2.Scope != "basic_profile email" {
 		t.Errorf("Authorization scope does not match what was requested")
 	}
-	if a2.ExpiresIn != tokenExpiresIn {
+	if a2.ExpiresIn != int64(tokenExpiresIn.Seconds()) {
 		t.Errorf("Authorization expiration time does not match what was configured")
 	}
 }
@@ -342,7 +342,7 @@ func TestClientCredentials(t *testing.T) {
 	if a2.Scope != "search" {
 		t.Errorf("Authorization scope does not match what was requested")
 	}
-	if a2.ExpiresIn != tokenExpiresIn {
+	if a2.ExpiresIn != int64(tokenExpiresIn.Seconds()) {
 		t.Errorf("Authorization expiration time does not match what was configured")
 	}
 }
