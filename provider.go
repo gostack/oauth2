@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,8 +22,14 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
+
+type GrantType interface {
+	RegistrationInfo() (string, string)
+	SetPersistenceBackend(PersistenceBackend)
+	AuthzHandler(c *Client, u User, scope string, req *http.Request) (url.Values, error)
+	TokenHandler(c *Client, ew *EncoderResponseWriter, req *http.Request)
+}
 
 // Provider represents a entire instance of a provider, connected to a specific backend.
 //
@@ -33,12 +39,35 @@ import (
 type Provider struct {
 	persistence PersistenceBackend
 	http        HTTPBackend
+
+	authzGrantTypes map[string]GrantType
+	tokenGrantTypes map[string]GrantType
 }
 
 // Creates a new Provider instance for the given backend
 func NewProvider(p PersistenceBackend, h HTTPBackend) *Provider {
-	prv := Provider{p, h}
+	prv := Provider{
+		persistence:     p,
+		http:            h,
+		authzGrantTypes: make(map[string]GrantType),
+		tokenGrantTypes: make(map[string]GrantType),
+	}
 	return &prv
+}
+
+// Register inserts a new strategy into the provider
+func (p *Provider) Register(gt GrantType) {
+	gt.SetPersistenceBackend(p.persistence)
+
+	authzResponseType, tokenGrantType := gt.RegistrationInfo()
+
+	if authzResponseType != "" {
+		p.authzGrantTypes[authzResponseType] = gt
+	}
+
+	if tokenGrantType != "" {
+		p.tokenGrantTypes[tokenGrantType] = gt
+	}
 }
 
 // HTTPHandler builds and return an http.Handler that can be mounted into any net/http
@@ -48,8 +77,8 @@ func NewProvider(p PersistenceBackend, h HTTPBackend) *Provider {
 //  http.Handler("/oauth", p.HTTPHandler())
 func (p Provider) HTTPHandler() http.Handler {
 	routes := map[string]http.Handler{
-		"/authorize": AuthorizeHTTPHandler{p.persistence, p.http},
-		"/token":     TokenHTTPHandler{p.persistence, p.http},
+		"/authorize": AuthorizeHTTPHandler{p.persistence, p.http, p.authzGrantTypes},
+		"/token":     TokenHTTPHandler{p.persistence, p.http, p.tokenGrantTypes},
 	}
 
 	mux := http.NewServeMux()
@@ -114,6 +143,7 @@ func redirectTo(w http.ResponseWriter, req *http.Request, baseURL *url.URL, newV
 type AuthorizeHTTPHandler struct {
 	persistence PersistenceBackend
 	http        HTTPBackend
+	grantTypes  map[string]GrantType
 }
 
 // ServeHTTP implements the http.Handler interface for this struct.
@@ -171,40 +201,40 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	switch req.URL.Query().Get("response_type") {
-	case "code":
-		switch req.Method {
-		case "GET":
-			h.http.RenderAuthorizationPage(w, req, &AuthorizationPageData{
-				Client: c,
-				User:   u,
-				Scopes: scopes,
-			})
+	rtValue := req.URL.Query().Get("response_type")
+	if rtValue == "" {
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"invalid_request"}, "state": []string{state}})
+		return
+	}
 
-		case "POST":
-			if req.PostFormValue("action") == "authorize" {
-				auth, err := NewAuthorization(c, u, scope, true, true)
-				if err != nil {
-					log.Println(err)
-					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
-					return
+	rt, supported := h.grantTypes[rtValue]
+	if !supported {
+		redirectTo(w, req, redirectURI, url.Values{"error": []string{"unsupported_response_type"}, "state": []string{state}})
+		return
+	}
+
+	switch req.Method {
+	case "GET":
+		h.http.RenderAuthorizationPage(w, req, &AuthorizationPageData{
+			Client: c,
+			User:   u,
+			Scopes: scopes,
+		})
+
+	case "POST":
+		if req.PostFormValue("action") == "authorize" {
+			urlValues, err := rt.AuthzHandler(c, u, scope, req)
+			if err != nil {
+				if err, ok := err.(Error); ok {
+					redirectTo(w, req, redirectURI, url.Values{"error": []string{err.ID}, "state": []string{state}})
 				}
-
-				if err := h.persistence.SaveAuthorization(auth); err != nil {
-					log.Println(err)
-					redirectTo(w, req, redirectURI, url.Values{"error": []string{"server_error"}, "state": []string{state}})
-					return
-				}
-
-				redirectTo(w, req, redirectURI, url.Values{"code": []string{auth.Code}, "state": []string{state}})
-				return
 			}
 
+			urlValues.Set("state", state)
+			redirectTo(w, req, redirectURI, urlValues)
+		} else {
 			redirectTo(w, req, redirectURI, url.Values{"error": []string{"access_denied"}, "state": []string{state}})
 		}
-
-	default:
-		redirectTo(w, req, redirectURI, url.Values{"error": []string{"unsupported_response_type"}, "state": []string{state}})
 	}
 }
 
@@ -212,6 +242,8 @@ func (h AuthorizeHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 type TokenHTTPHandler struct {
 	persistence PersistenceBackend
 	http        HTTPBackend
+
+	grantTypes map[string]GrantType
 }
 
 // ServeHTTP implements the http.Handler interface for this struct.
@@ -253,189 +285,20 @@ func (h TokenHTTPHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Read the grant_type from the body parameters
-	gt := req.PostFormValue("grant_type")
-	if gt == "" {
+	gtValue := req.PostFormValue("grant_type")
+	if gtValue == "" {
 		log.Println("Grant type is missing")
 		ew.Encode(ErrInvalidRequest)
 		return
 	}
 
-	switch gt {
-	case "authorization_code":
-		h.authorizationCode(c, ew, req)
-	case "password":
-		h.resourceOwnerCredentials(c, ew, req)
-	case "client_credentials":
-		h.clientCredentials(c, ew, req)
-	case "refresh_token":
-		h.refreshToken(c, ew, req)
-	default:
+	gt, supported := h.grantTypes[gtValue]
+
+	if !supported {
 		log.Println("Unsupported grant type")
 		ew.Encode(ErrUnsupportedGrantType)
-	}
-}
-
-// authorizationCode implements that Authorization Code grant type.
-func (h TokenHTTPHandler) authorizationCode(c *Client, ew *EncoderResponseWriter, req *http.Request) {
-	var (
-		code        = req.PostFormValue("code")
-		redirectURI = req.PostFormValue("redirect_uri")
-	)
-
-	if code == "" || redirectURI == "" {
-		log.Println("missing required parameters")
-		ew.Encode(ErrInvalidRequest)
 		return
 	}
 
-	if redirectURI != c.RedirectURI {
-		log.Println("redirect_uri does not match authorization")
-		ew.Encode(ErrInvalidGrant)
-		return
-	}
-
-	auth, err := h.persistence.GetAuthorizationByCode(code)
-	if err != nil {
-		log.Println("couldn't find authorization for code:", err)
-		ew.Encode(ErrInvalidGrant)
-		return
-	}
-
-	if time.Now().Unix() > auth.CreatedAt.Add(5*time.Minute).Unix() {
-		log.Println("code has expired")
-		ew.Encode(ErrInvalidGrant)
-		return
-	}
-
-	auth.Code = ""
-	if err := h.persistence.SaveAuthorization(auth); err != nil {
-		log.Println("could not save authorization:", err)
-		ew.Encode(ErrServerError)
-		return
-	}
-
-	ew.Encode(auth)
-}
-
-// resourceOwnerCredentials implements that Resource Owner Credentials grant type.
-func (h TokenHTTPHandler) resourceOwnerCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
-	if !c.Internal {
-		log.Println("client not internal")
-		ew.Encode(ErrUnauthorizedClient)
-		return
-	}
-
-	var (
-		username = req.PostFormValue("username")
-		password = req.PostFormValue("password")
-		scope    = req.PostFormValue("scope")
-	)
-
-	if username == "" || password == "" {
-		log.Println("username or password is empty")
-		ew.Encode(ErrInvalidRequest)
-		return
-	}
-
-	u, err := h.persistence.GetUserByCredentials(username, password)
-	if err != nil {
-		log.Println("invalid credentials")
-		ew.Encode(ErrAccessDenied)
-		return
-	}
-
-	auth, err := NewAuthorization(c, u, scope, true, false)
-	if err != nil {
-		log.Println(err)
-		ew.Encode(ErrServerError)
-		return
-	}
-
-	if err := h.persistence.SaveAuthorization(auth); err != nil {
-		log.Println(err)
-		ew.Encode(ErrServerError)
-		return
-	}
-
-	ew.Encode(auth)
-}
-
-// clientCredentials implements the Client Credentials grant type.
-func (h TokenHTTPHandler) clientCredentials(c *Client, ew *EncoderResponseWriter, req *http.Request) {
-	if !(c.Confidential && c.Internal) {
-		log.Println("client is not confidential and internal")
-		ew.Encode(ErrUnauthorizedClient)
-		return
-	}
-
-	var (
-		scope = req.PostFormValue("scope")
-	)
-
-	if scope != "" {
-		scopesSl, err := h.persistence.GetScopesByID(strings.Split(scope, " ")...)
-		if err != nil {
-			log.Println("couldn't fetch scopes by id:", err)
-			ew.Encode(ErrServerError)
-			return
-		}
-
-		for _, s := range scopesSl {
-			if s.UserOnly == true {
-				log.Println("attempt to request user only scope on client credentials grant type")
-				ew.Encode(ErrInvalidScope)
-				return
-			}
-		}
-	}
-
-	auth, err := NewAuthorization(c, nil, scope, false, false)
-	if err != nil {
-		log.Println(err)
-		ew.Encode(ErrServerError)
-		return
-	}
-
-	if err := h.persistence.SaveAuthorization(auth); err != nil {
-		log.Println(err)
-		ew.Encode(ErrServerError)
-		return
-	}
-
-	ew.Encode(auth)
-}
-
-// refreshToken implements the token refresh flow
-func (h TokenHTTPHandler) refreshToken(c *Client, ew *EncoderResponseWriter, req *http.Request) {
-	var (
-		refreshToken = req.PostFormValue("refresh_token")
-		scope        = req.PostFormValue("scope")
-	)
-
-	if refreshToken == "" || scope == "" {
-		log.Println("missing required parameters")
-		ew.Encode(ErrInvalidRequest)
-		return
-	}
-
-	auth, err := h.persistence.GetAuthorizationByRefreshToken(refreshToken)
-	if err != nil {
-		log.Println("invalida refresh token:", refreshToken)
-		ew.Encode(ErrInvalidGrant)
-		return
-	}
-
-	if err := auth.Refresh(scope); err != nil {
-		log.Println("failed to refresh token")
-		ew.Encode(ErrServerError)
-		return
-	}
-
-	if err := h.persistence.SaveAuthorization(auth); err != nil {
-		log.Println("failed to persist authorization")
-		ew.Encode(ErrServerError)
-		return
-	}
-
-	ew.Encode(auth)
+	gt.TokenHandler(c, ew, req)
 }

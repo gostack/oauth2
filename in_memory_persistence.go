@@ -18,7 +18,7 @@ package oauth2
 
 type inMemoryAuthKey struct {
 	Client *Client
-	User   *User
+	User   User
 }
 
 // InMemoryPersistence is a simple backend implementation that keeps all data
@@ -33,7 +33,7 @@ type InMemoryPersistence struct {
 
 	// users holds the references to existing users in the system,
 	// indexed by their login
-	users map[string]*User
+	users map[string]User
 
 	// authorizations holds the existing authorizations indexed by
 	// access token
@@ -47,7 +47,7 @@ func NewInMemoryPersistence(validPassword string) *InMemoryPersistence {
 	return &InMemoryPersistence{
 		validPassword:  validPassword,
 		clients:        make(map[string]*Client),
-		users:          make(map[string]*User),
+		users:          make(map[string]User),
 		authorizations: make(map[inMemoryAuthKey]*Authorization),
 		scopes:         make(map[string]*Scope),
 	}
@@ -133,19 +133,18 @@ func (b *InMemoryPersistence) SaveScope(s *Scope) error {
 	return nil
 }
 
-// GetUserByCredentials lookup the user that matches the username and password
-func (b *InMemoryPersistence) GetUserByCredentials(username, password string) (*User, error) {
+// GetUserByUsername lookup the user that matches the login
+func (b *InMemoryPersistence) GetUserByUsername(username string) (User, error) {
 	u, exst := b.users[username]
-	if !exst || password != "validpassword" {
-		return nil, ErrAccessDenied
+	if !exst {
+		return nil, ErrNotFound
 	}
-
 	return u, nil
 }
 
 // SaveUser persists the user in the backend, it's not part of the Backend interface
 // but we need a way to add users to the Backend.
-func (b *InMemoryPersistence) SaveUser(u *User) error {
-	b.users[u.Login] = u
+func (b *InMemoryPersistence) SaveUser(u User) error {
+	b.users[u.GetUsername()] = u
 	return nil
 }
