@@ -29,6 +29,7 @@ type AssertionJWTGrantType struct {
 	persistence PersistenceBackend
 	Audience    string
 	Algorithm   jwt.Algorithm
+	Leeway      time.Duration
 	ExpiresIn   time.Duration
 }
 
@@ -63,7 +64,7 @@ func (gt AssertionJWTGrantType) TokenHandler(c *Client, ew *EncoderResponseWrite
 		return
 	}
 
-	err = jwtTk.Verify("", "", gt.Audience)
+	err = jwtTk.Verify("", "", gt.Audience, gt.Leeway)
 	if err != nil {
 		log.Println("JWT token failed to verify:", err)
 		ew.Encode(ErrInvalidGrant)
