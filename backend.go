@@ -33,9 +33,9 @@ type PersistenceBackend interface {
 	//*
 	// Authorization persistence
 	//*
-	GetAuthorizationByCode(code string) (*Authorization, error)
+	GetAuthorizationByCode(c *Client, code string) (*Authorization, error)
+	GetAuthorizationByRefreshToken(c *Client, refreshToken string) (*Authorization, error)
 	GetAuthorizationByAccessToken(accessToken string) (*Authorization, error)
-	GetAuthorizationByRefreshToken(refreshToken string) (*Authorization, error)
 	SaveAuthorization(a *Authorization) error
 
 	//*

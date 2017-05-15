@@ -52,7 +52,7 @@ func (gt RefreshTokenGrantType) TokenHandler(c *Client, ew *EncoderResponseWrite
 		return
 	}
 
-	auth, err := gt.persistence.GetAuthorizationByRefreshToken(refreshToken)
+	auth, err := gt.persistence.GetAuthorizationByRefreshToken(c, refreshToken)
 	if err != nil {
 		log.Println("invalid refresh token:", refreshToken)
 		ew.Encode(ErrInvalidGrant)

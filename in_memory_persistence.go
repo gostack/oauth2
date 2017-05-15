@@ -61,9 +61,21 @@ func (b *InMemoryPersistence) SaveAuthorization(a *Authorization) error {
 }
 
 // GetAuthorizationByCode takes a code and look it up
-func (b *InMemoryPersistence) GetAuthorizationByCode(code string) (*Authorization, error) {
+func (b *InMemoryPersistence) GetAuthorizationByCode(c *Client, code string) (*Authorization, error) {
 	for _, a := range b.authorizations {
-		if a.Code == code {
+		if a.Client == c && a.Code == code {
+			return a, nil
+		}
+	}
+
+	return nil, ErrNotFound
+}
+
+// GetAuthorizationByRefreshToken takes an access token and returns the authorization
+// it represents, if exists.
+func (b *InMemoryPersistence) GetAuthorizationByRefreshToken(c *Client, refreshToken string) (*Authorization, error) {
+	for _, a := range b.authorizations {
+		if a.Client == c && a.RefreshToken == refreshToken {
 			return a, nil
 		}
 	}
@@ -76,18 +88,6 @@ func (b *InMemoryPersistence) GetAuthorizationByCode(code string) (*Authorizatio
 func (b *InMemoryPersistence) GetAuthorizationByAccessToken(accessToken string) (*Authorization, error) {
 	for _, a := range b.authorizations {
 		if a.AccessToken == accessToken {
-			return a, nil
-		}
-	}
-
-	return nil, ErrNotFound
-}
-
-// GetAuthorizationByRefreshToken takes an access token and returns the authorization
-// it represents, if exists.
-func (b *InMemoryPersistence) GetAuthorizationByRefreshToken(refreshToken string) (*Authorization, error) {
-	for _, a := range b.authorizations {
-		if a.RefreshToken == refreshToken {
 			return a, nil
 		}
 	}

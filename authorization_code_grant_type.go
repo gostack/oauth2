@@ -69,7 +69,7 @@ func (gt AuthorizationCodeGrantType) TokenHandler(c *Client, ew *EncoderResponse
 		return
 	}
 
-	auth, err := gt.persistence.GetAuthorizationByCode(code)
+	auth, err := gt.persistence.GetAuthorizationByCode(c, code)
 	if err != nil {
 		log.Println("couldn't find authorization for code:", err)
 		ew.Encode(ErrInvalidGrant)
