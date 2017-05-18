@@ -46,6 +46,12 @@ func (gt AssertionJWTGrantType) AuthzHandler(c *Client, u User, scope string, re
 }
 
 func (gt AssertionJWTGrantType) TokenHandler(c *Client, ew *EncoderResponseWriter, req *http.Request) {
+	if !(c.Confidential && c.Internal) {
+		log.Println("client is not confidential and internal")
+		ew.Encode(ErrUnauthorizedClient)
+		return
+	}
+
 	var (
 		assertion = req.PostFormValue("assertion")
 		scope     = req.PostFormValue("scope")
